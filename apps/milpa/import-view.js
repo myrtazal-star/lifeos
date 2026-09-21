@@ -325,7 +325,9 @@ export function importSheet({ t, lang, book, onDone }) {
 
     const existing = new Set(
       D.S().tx
-        .filter(x => x.account === st.accountId)
+        // без проверки удаления повторный импорт считал бы дубликатом то,
+        // что пользователь сознательно удалил
+        .filter(x => x.account === st.accountId && !x.deleted)
         .map(x => fingerprint({ date: x.date, kind: x.kind, amount: x.amount, note: x.note }))
     );
 

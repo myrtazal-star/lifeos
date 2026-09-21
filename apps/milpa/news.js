@@ -151,10 +151,15 @@ export function newsView(t, lang, rerender) {
   return nodes;
 }
 
+/* Ссылки приходят из чужих лент. Схема вида javascript: выполнилась бы
+   в домене приложения, где лежат ключ распознавания и данные о деньгах. */
+const safeLink = (url) => (/^https?:\/\//i.test(String(url || '')) ? url : null);
+
 function newsRow(item, lang) {
   const time = item.date ? item.date.slice(11, 16) : '';
-  return el('a.row', {
-    href: item.link, target: '_blank', rel: 'noopener noreferrer',
+  const href = safeLink(item.link);
+  return el(href ? 'a.row' : 'div.row', {
+    href, target: href ? '_blank' : null, rel: 'noopener noreferrer',
     style: { color: 'inherit' },
   }, [
     el('div.row__main', {}, [

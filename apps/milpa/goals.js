@@ -251,7 +251,11 @@ export function goalSheet({ t, lang, book, goal, onDone }) {
           el('button.icon-btn', {
             style: { width: '32px', height: '32px' },
             html: icons.trash, 'aria-label': t('delete'),
-            onclick: () => { D.removeSaving(sv.id); render(); onDone?.(); },
+            onclick: () => confirmSheet({
+              title: t('delete_confirm'), text: t('goal_delete_saving'),
+              confirmLabel: t('delete'), cancelLabel: t('cancel'),
+              onConfirm: () => { D.removeSaving(sv.id); render(); onDone?.(); },
+            }),
           }),
         ]))),
       ]),

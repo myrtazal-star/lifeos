@@ -219,7 +219,10 @@ export function txForm({ t, lang, book, tx = null, onDone }) {
     const toCur = curOf(draft.toAccount);
     let amountTo = null;
     if (draft.kind === 'transfer') {
-      amountTo = cur === toCur ? cents : (parseMoney(draft.amountTo) || D.toBase(cents, cur));
+      /* Нужна валюта счёта-получателя, а не основная валюта учёта:
+         toBase() здесь давал 5 000 долларов вместо 5 000 песо. */
+      amountTo = cur === toCur ? cents
+        : (parseMoney(draft.amountTo) || D.convertBetween(cents, cur, toCur));
     }
 
     const payload = {
@@ -296,7 +299,13 @@ export function accountForm({ t, book, account = null, onDone }) {
       { value: draft.type, onchange: e => { draft.type = e.target.value; } })),
     field(t('account_currency'), select(
       ['MXN', 'USD'].map(v => ({ value: v, label: `${v} — ${CURRENCIES[v].name}` })),
-      { value: draft.currency, onchange: e => { draft.currency = e.target.value; } })),
+      { value: draft.currency,
+        // менять валюту счёта, по которому уже есть операции, нельзя:
+        // суммы хранятся в валюте счёта и молча пересчитались бы все разом
+        disabled: editing && D.txCountForAccount(account.id) > 0,
+        onchange: e => { draft.currency = e.target.value; } })),
+    editing && D.txCountForAccount(account.id) > 0 &&
+      el('div.tiny.muted-3', { text: t('account_currency_locked') }),
     field(t('account_opening'), input({
       inputmode: 'decimal', value: draft.opening,
       oninput: e => { draft.opening = e.target.value; },

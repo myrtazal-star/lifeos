@@ -111,8 +111,11 @@ export function debtForm({ t, lang, book, debt = null, onDone }) {
       apr, withIva: draft.withIva,
       minPayment: parseMoney(draft.minPayment),
       dueDay: draft.dueDay,
-      confirmedAt: toISODate(),
     };
+    /* Дату сверки с выпиской двигаем только если остаток действительно
+       изменился: иначе смена значка гасила предупреждение «данные устарели». */
+    if (!editing || balance !== debt.balance) payload.confirmedAt = toISODate();
+
     if (editing) D.updateDebt(debt.id, payload);
     else D.addDebt(payload);
     s.close(); toast(t('saved')); onDone?.();
@@ -131,9 +134,13 @@ export function debtForm({ t, lang, book, debt = null, onDone }) {
 /* ─────────── Платёж по долгу ─────────── */
 
 export function debtPaymentForm({ t, book, debt, onDone }) {
+  const accounts = D.accountsOf(book);
   const draft = {
     amount: debt.minPayment ? String(debt.minPayment / 100) : '',
     date: toISODate(), note: '', asExpense: true,
+    // счёт выбирается человеком: раньше он подбирался молча, и платёж
+    // по карте мог уйти с «Наличных»
+    accountId: (accounts.find(a => a.currency === debt.currency) || accounts[0])?.id || '',
   };
   let s;
 
@@ -146,18 +153,22 @@ export function debtPaymentForm({ t, book, debt, onDone }) {
     const cents = parseMoney(draft.amount);
     if (cents <= 0) { toast(t('amount_required'), { error: true }); return; }
 
-    D.addDebtPayment({ book, debtId: debt.id, date: draft.date, amount: cents, note: draft.note.trim() });
+    const acc = D.accountById(draft.accountId);
+
+    D.addDebtPayment({ book, debtId: debt.id, date: draft.date, amount: cents,
+                       note: draft.note.trim(), accountId: acc?.id });
 
     // платёж по карте — это реальный уход денег со счёта, если попросили записать
-    if (draft.asExpense) {
-      const acc = D.accountsOf(book).find(a => a.currency === debt.currency) || D.accountsOf(book)[0];
-      if (acc) {
-        D.addTx({
-          book, kind: 'expense', date: draft.date,
-          amount: cents, currency: acc.currency, account: acc.id,
-          category: null, party: debt.name, note: t('debt_payment_note', { d: debt.name }),
-        });
-      }
+    if (draft.asExpense && acc) {
+      // сумма долга в своей валюте: со счёта уходит столько же в валюте счёта
+      const fromAccount = acc.currency === debt.currency
+        ? cents
+        : D.convertBetween(cents, debt.currency, acc.currency);
+      D.addTx({
+        book, kind: 'expense', date: draft.date,
+        amount: fromAccount, currency: acc.currency, account: acc.id,
+        category: null, party: debt.name, note: t('debt_payment_note', { d: debt.name }),
+      });
     }
 
     haptic(18);
@@ -175,6 +186,9 @@ export function debtPaymentForm({ t, book, debt, onDone }) {
         type: 'date', value: draft.date,
         onchange: e => { draft.date = e.target.value || toISODate(); },
       })),
+      field(t('debt_from_account'), select(
+        accounts.map(a => ({ value: a.id, label: `${a.name} · ${a.currency}` })),
+        { value: draft.accountId, onchange: e => { draft.accountId = e.target.value; } })),
       el('div.switch-row', {}, [
         el('span.small', { text: t('debt_as_expense') }),
         el('label.switch', {}, [
@@ -388,7 +402,13 @@ export function debtSheet({ t, lang, book, debt, onDone }) {
           text: '−' + formatMoney(p.amount, d.currency, { decimals: 0 }) }),
         el('button.icon-btn', {
           style: { width: '32px', height: '32px' }, html: icons.trash, 'aria-label': t('delete'),
-          onclick: () => { D.removeDebtPayment(p.id); render(); onDone?.(); },
+          // подтверждение: кнопка стоит вплотную к сумме в прокручиваемом
+          // списке, и промах пальцем менял остаток долга без отката
+          onclick: () => confirmSheet({
+            title: t('delete_confirm'), text: t('debt_delete_payment'),
+            confirmLabel: t('delete'), cancelLabel: t('cancel'),
+            onConfirm: () => { D.removeDebtPayment(p.id); render(); onDone?.(); },
+          }),
         }),
       ]))),
     ]);

@@ -624,15 +624,21 @@ export function removeDebt(id) {
 }
 
 /** Записать платёж: уменьшает остаток долга. */
-export function addDebtPayment({ book, debtId, date, amount, note }) {
+export function addDebtPayment({ book, debtId, date, amount, note, accountId }) {
   const id = uid('dp');
   store.update(s => {
-    s.debtPayments.push(stamp({
-      id, book, debtId, date, amount, note: note || '',
-      createdAt: new Date().toISOString(),
-    }));
     const d = s.debts.find(x => x.id === debtId);
-    if (d) stamp(Object.assign(d, { balance: Math.max(0, (d.balance || 0) - amount) }));
+    /* Запоминаем, на сколько остаток реально уменьшился. Раньше излишек
+       переплаты молча проглатывался, а при удалении платежа возвращалась
+       полная сумма — и долг оказывался больше, чем был до платежа. */
+    const before = d ? (d.balance || 0) : 0;
+    const applied = d ? Math.min(amount, before) : 0;
+
+    s.debtPayments.push(stamp({
+      id, book, debtId, date, amount, applied, accountId: accountId || null,
+      note: note || '', createdAt: new Date().toISOString(),
+    }));
+    if (d) stamp(Object.assign(d, { balance: before - applied }));
   });
   return id;
 }
@@ -642,9 +648,10 @@ export function removeDebtPayment(id) {
     const p = s.debtPayments.find(x => x.id === id);
     if (!p) return;
     tombstone(p);
-    // возвращаем сумму обратно в остаток
+    // возвращаем ровно то, что было вычтено, а не всю сумму платежа
     const d = s.debts.find(x => x.id === p.debtId);
-    if (d) stamp(Object.assign(d, { balance: (d.balance || 0) + p.amount }));
+    const back = p.applied != null ? p.applied : p.amount;
+    if (d) stamp(Object.assign(d, { balance: (d.balance || 0) + back }));
   });
 }
 

@@ -25,6 +25,7 @@ export function monthlyInterest(balance, apr, withIva = true) {
  */
 export function monthsToPayOff(balance, apr, payment, withIva = true) {
   if (balance <= 0) return 0;
+  if (!(payment > 0)) return null;        // без платежа долг не гасится
   const i = monthlyRate(apr, withIva);
   if (i <= 0) return Math.ceil(balance / payment);
 
@@ -50,7 +51,10 @@ export function payoffPlan(balance, apr, payment, withIva = true) {
   // последний платёж обычно меньше остальных — считаем по остатку
   const i = monthlyRate(apr, withIva);
   let left = balance, paid = 0;
-  for (let m = 0; m < months && left > 0; m++) {
+  // предохранитель: цикл не должен зависеть только от арифметики,
+  // иначе неудачные входные данные вешают вкладку намертво
+  const guard = Math.min(months, 1200);
+  for (let m = 0; m < guard && left > 0; m++) {
     const add = left * i;
     const step = Math.min(payment, left + add);
     paid += step;

@@ -234,7 +234,7 @@ function freqLabel(t, h) {
 }
 
 export function habitsView(t, lang, rerender) {
-  const all = D.S().habits;
+  const all = D.liveHabits();
   const archived = all.filter(h => !h.active);
   const nodes = [];
 

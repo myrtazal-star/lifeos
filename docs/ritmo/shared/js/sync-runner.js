@@ -40,17 +40,19 @@ export function createSyncRunner({ app, store, shape, onState, cloud = defaultCl
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         const remote = await cloud.pull(app);
 
-        // Сливаем на момент отправки: пока шёл запрос, пользователь мог
-        // что-то записать, и это не должно потеряться.
         store.flush();
-        const merged = mergeState(store.state, remote?.data, shape);
+        const outgoing = mergeState(store.state, remote?.data, shape);
 
-        const res = await cloud.push(app, merged, remote?.revision);
+        const res = await cloud.push(app, outgoing, remote?.revision);
 
         if (res.conflict) continue;      // кто-то успел раньше — читаем заново
 
-        // применяем к себе только то, что реально пришло с той стороны
-        if (remote?.data) store.replace(merged);
+        /* Отправка занимает на мобильной сети секунды, и за это время
+           человек мог записать ещё одну операцию. Если положить к себе
+           снимок, сделанный ДО отправки, эта запись исчезнет — и с
+           устройства, и из облака, хотя он видел «Сохранено».
+           Поэтому сливаем заново, уже на момент применения. */
+        if (remote?.data) store.replace(mergeState(store.state, remote.data, shape));
 
         set({ status: 'ok', lastAt: Date.now(), lastError: null, revision: res.revision });
         return true;
@@ -79,8 +81,13 @@ export function createSyncRunner({ app, store, shape, onState, cloud = defaultCl
   function start() {
     if (!cloud.signedIn()) return;
 
-    // во время обмена состояние меняем мы сами — не запускаем новый круг
-    store.subscribe(() => { if (!running) schedule(); });
+    store.subscribe(() => {
+      // Во время обмена состояние меняем мы сами, поэтому новый круг не
+      // запускаем сразу — но и не теряем: ставим в очередь, иначе правка,
+      // сделанная в эти секунды, осталась бы неотправленной.
+      if (running) queued = true;
+      else schedule();
+    });
 
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) sync({ reason: 'visible' });

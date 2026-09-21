@@ -189,6 +189,43 @@ console.log('\n── Удаление доезжает до второго ус
   eq('и не возвращается', ids(phone.state), []);
 }
 
+console.log('\n── Правка во время отправки не теряется ──');
+{
+  /* Отправка на мобильной сети занимает секунды. Если за это время
+     человек записал операцию, она не должна исчезнуть.
+     Важно: на сервере уже должны быть данные — иначе опасная ветка
+     (применение снимка к себе) просто не выполняется, и проверка
+     проходит вхолостую. */
+  const server = makeServer();
+  const other = makeStore(empty());
+  other.add(tx('чужая', T(1)));
+  const seed = createSyncRunner({ app: 'milpa', store: other, shape: SHAPE, cloud: server.api(server) });
+  await seed.sync();
+  ok('на сервере есть с чего начинать', !!server.rows.get('milpa'));
+
+  const phone = makeStore(empty());
+  phone.add(tx('было', T(2)));
+
+  const api = server.api(server);
+  const realPush = api.push.bind(api);
+  api.push = async (app, data, expected) => {
+    // ровно в момент отправки пользователь сохраняет ещё одну операцию
+    phone.add(tx('во-время-отправки', T(3)));
+    return realPush(app, data, expected);
+  };
+
+  const r = createSyncRunner({ app: 'milpa', store: phone, shape: SHAPE, cloud: api });
+  await r.sync();
+
+  ok('запись, сделанная во время отправки, на месте',
+     ids(phone.state).includes('во-время-отправки'), JSON.stringify(ids(phone.state)));
+  eq('ничего не потеряно', ids(phone.state), ['было', 'во-время-отправки', 'чужая']);
+
+  await r.sync();
+  eq('сервер получил всё', server.rows.get('milpa').data.tx.map(t => t.id).sort(),
+     ['было', 'во-время-отправки', 'чужая']);
+}
+
 console.log('\n── Без входа обмен не запускается ──');
 {
   const server = makeServer();
