@@ -5,7 +5,8 @@ import { el, icons, sheet, confirmSheet, toast, segmented, emptyState,
 import { formatMoney, toISODate, addMonths, startOfMonth, endOfMonth,
          relativeDay, formatMonth, formatDate, CURRENCIES, parseMoney } from './shared/js/format.js';
 import { LANGS } from './shared/js/i18n.js';
-import { canPromptInstall, promptInstall, isIOS, isStandalone } from './shared/js/pwa.js';
+import { canPromptInstall, promptInstall, isIOS, isStandalone, forceUpdate } from './shared/js/pwa.js';
+import { BUILD, BUILT_AT } from './version.js';
 import * as D from './data.js';
 import { txForm, accountForm, categoryForm, recurringForm } from './forms.js';
 import { nominaSheet } from './nomina-view.js';
@@ -714,8 +715,7 @@ export function settingsView(t, lang, rerender, i18n) {
     ]),
   ]));
 
-  nodes.push(el('div.tiny.muted-3', { style: { textAlign: 'center', padding: '8px' },
-    text: `${t('app_name')} · ${t('csv_hint')}` }));
+  nodes.push(versionCard(t));
 
   return nodes;
 }
@@ -769,6 +769,29 @@ function aiCard(t, rerender) {
     el('p.tiny.muted-3', { style: { marginTop: '14px', lineHeight: '1.5' }, text: t('ai_cost') }),
     el('p.tiny.muted-3', { style: { marginTop: '6px', lineHeight: '1.5' }, text: t('ai_privacy') }),
     el('p.tiny.muted-3', { style: { marginTop: '6px', lineHeight: '1.5' }, text: t('ai_where_key') }),
+  ]);
+}
+
+
+/** Версия и принудительное обновление: без этого «у меня ничего не
+    изменилось» невозможно ни проверить, ни починить. */
+function versionCard(t) {
+  const when = BUILT_AT
+    ? new Date(BUILT_AT).toLocaleString([], { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : t('ver_dev');
+
+  return el('div.card.card--flat', {}, [
+    el('div.hstack', {}, [
+      el('div', { style: { flex: '1', minWidth: '0' } }, [
+        el('div.tiny.muted-3', { text: t('ver_title') }),
+        el('div.small', { style: { fontWeight: '600', marginTop: '2px' }, text: when }),
+      ]),
+      el('button.btn.btn--sm.btn--ghost', {
+        text: t('ver_update'),
+        onclick: async (e) => { e.target.disabled = true; e.target.textContent = t('ver_checking'); await forceUpdate(); },
+      }),
+    ]),
+    el('p.tiny.muted-3', { style: { marginTop: '8px' }, text: t('ver_hint') }),
   ]);
 }
 

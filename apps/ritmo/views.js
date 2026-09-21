@@ -5,8 +5,9 @@ import { el, icons, sheet, confirmSheet, toast, segmented, emptyState, haptic,
 import { toISODate, addDays, addMonths, startOfMonth, endOfMonth, startOfWeek,
          relativeDay, formatMonth, formatDate, weekdayNames } from './shared/js/format.js';
 import { LANGS } from './shared/js/i18n.js';
-import { canPromptInstall, promptInstall, isIOS, isStandalone, requestNotifications }
+import { canPromptInstall, promptInstall, isIOS, isStandalone, forceUpdate, requestNotifications }
   from './shared/js/pwa.js';
+import { BUILD, BUILT_AT } from './version.js';
 import * as D from './data.js';
 import { habitForm, countForm } from './forms.js';
 import { cloudCard } from './shared/js/cloud-ui.js';
@@ -440,6 +441,29 @@ function tile(label, value) {
 
 /* ─────────── Экран «Ещё» ─────────── */
 
+
+/** Версия и принудительное обновление: без этого «у меня ничего не
+    изменилось» невозможно ни проверить, ни починить. */
+function versionCard(t) {
+  const when = BUILT_AT
+    ? new Date(BUILT_AT).toLocaleString([], { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : t('ver_dev');
+
+  return el('div.card.card--flat', {}, [
+    el('div.hstack', {}, [
+      el('div', { style: { flex: '1', minWidth: '0' } }, [
+        el('div.tiny.muted-3', { text: t('ver_title') }),
+        el('div.small', { style: { fontWeight: '600', marginTop: '2px' }, text: when }),
+      ]),
+      el('button.btn.btn--sm.btn--ghost', {
+        text: t('ver_update'),
+        onclick: async (e) => { e.target.disabled = true; e.target.textContent = t('ver_checking'); await forceUpdate(); },
+      }),
+    ]),
+    el('p.tiny.muted-3', { style: { marginTop: '8px' }, text: t('ver_hint') }),
+  ]);
+}
+
 export function settingsView(t, lang, rerender, i18n) {
   const s = D.S().settings;
   const nodes = [cloudCard({ t, runner, rerender })];
@@ -546,6 +570,8 @@ export function settingsView(t, lang, rerender, i18n) {
       }) }),
     ]),
   ]));
+
+  nodes.push(versionCard(t));
 
   return nodes;
 }

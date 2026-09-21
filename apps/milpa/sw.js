@@ -31,6 +31,7 @@ const SHELL = [
   './shared/js/format.js',
   './shared/js/pwa.js',
   './shared/js/shell.js',
+  './version.js',
   './shared/js/sync.js',
   './shared/js/sync-runner.js',
   './shared/js/cloud.js',

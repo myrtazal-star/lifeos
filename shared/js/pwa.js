@@ -3,10 +3,25 @@
 
 export function registerSW(path = './sw.js') {
   if (!('serviceWorker' in navigator)) return;
+
+  // Было ли приложение уже под управлением кэша: на самой первой установке
+  // перезагружаться не нужно, там и так свежий код.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+
+  /* Когда новая версия берёт управление, страница всё ещё выполняет старый
+     код. Без перезагрузки человек видит прежнее приложение и думает, что
+     ничего не изменилось. Поэтому перезагружаем сами — один раз. */
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
+
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register(path, { scope: './' });
-      // Если вышла новая версия — обновляем при следующем открытии, без прерывания работы.
+
       reg.addEventListener('updatefound', () => {
         const sw = reg.installing;
         sw?.addEventListener('statechange', () => {
@@ -15,8 +30,26 @@ export function registerSW(path = './sw.js') {
           }
         });
       });
+
+      // Проверяем обновление при каждом возвращении в приложение:
+      // установленное приложение иначе может неделями жить на старой версии.
+      const check = () => { if (!document.hidden) reg.update().catch(() => {}); };
+      document.addEventListener('visibilitychange', check);
+      window.addEventListener('online', check);
+      setTimeout(check, 3000);
     } catch (e) { console.warn('Офлайн-режим недоступен:', e); }
   });
+}
+
+/** Принудительно перепроверить и применить обновление. */
+export async function forceUpdate() {
+  if (!('serviceWorker' in navigator)) { location.reload(); return; }
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(r => r.update()));
+    // если новой версии нет, просто перечитываем страницу без кэша браузера
+    setTimeout(() => location.reload(), 600);
+  } catch { location.reload(); }
 }
 
 /** Тема: 'dark' | 'light' | 'auto' */

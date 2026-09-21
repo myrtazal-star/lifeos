@@ -25,6 +25,11 @@ for (const app of APPS) {
     filter: (p) => !/\/\.(DS_Store|git)/.test(p),
   });
 
+  /* Метка сборки внутри приложения: человек должен видеть, какая версия
+     у него стоит, иначе «я не вижу, что поменялось» не проверить. */
+  await writeFile(join(out, 'version.js'),
+    `export const BUILD = '${stamp}';\nexport const BUILT_AT = '${new Date().toISOString()}';\n`);
+
   // версия кэша: при каждой сборке новая
   const swPath = join(out, 'sw.js');
   const sw = await readFile(swPath, 'utf8');
