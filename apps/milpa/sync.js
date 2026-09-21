@@ -14,6 +14,8 @@ const SHAPE = {
     books: 'id',
     goals: 'id',
     savings: 'id',
+    debts: 'id',
+    debtPayments: 'id',
   },
   singles: ['settings'],
 };

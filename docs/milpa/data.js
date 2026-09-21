@@ -91,6 +91,8 @@ const seed = {
   recurring: [],
   goals: [],          // цели накопления
   savings: [],        // отложенные суммы по целям
+  debts: [],          // долги: кредитки, займы
+  debtPayments: [],   // платежи по долгам
 };
 
 export const store = createStore({
@@ -142,6 +144,7 @@ export const liveAccounts = () => alive(S().accounts);
 export const liveCategories = () => alive(S().categories);
 export const liveRecurring = () => alive(S().recurring);
 export const liveGoals = () => alive(S().goals);
+export const liveDebts = () => alive(S().debts);
 export const liveSavings = () => alive(S().savings);
 
 export const accountsOf = (book, { withArchived = false } = {}) =>
@@ -555,4 +558,97 @@ export function removeSaving(id) {
     const sv = s.savings.find(x => x.id === id);
     if (sv) tombstone(sv);
   });
+}
+
+
+/* ─────────── Долги ───────────
+
+   Остаток долга хранится как подтверждённый: вы сверяете его с выпиской,
+   а платежи его уменьшают. Проценты набегают на стороне банка, поэтому
+   раз в месяц остаток стоит сверять заново — приложение об этом напомнит.
+
+   Стратегия погашения считается в debt-math.js. */
+
+export const DEBT_ICONS = ['💳','🏦','🚗','🏠','👤','📄'];
+
+export function debtsOf(book, { withClosed = false } = {}) {
+  return liveDebts()
+    .filter(d => d.book === book && (withClosed || !d.archived))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+export const debtById = (id) => {
+  const d = S().debts.find(x => x.id === id);
+  return d && !d.deleted ? d : null;
+};
+
+export const debtPaymentsOf = (debtId) =>
+  alive(S().debtPayments).filter(p => p.debtId === debtId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+/** Сумма всех долгов книги в основной валюте. */
+export function debtsTotal(book) {
+  return debtsOf(book).reduce((sum, d) => sum + toBase(d.balance || 0, d.currency), 0);
+}
+
+/** Сколько дней прошло с последней сверки остатка с выпиской. */
+export function daysSinceConfirmed(debt, today = toISODate()) {
+  if (!debt?.confirmedAt) return null;
+  return daysBetween(debt.confirmedAt, today);
+}
+
+export function addDebt(data) {
+  const id = uid('d');
+  store.update(s => s.debts.push(stamp({
+    id, archived: false, order: s.debts.length,
+    confirmedAt: toISODate(),
+    createdDate: toISODate(),
+    ...data,
+  })));
+  return id;
+}
+
+export function updateDebt(id, patch) {
+  store.update(s => {
+    const d = s.debts.find(x => x.id === id);
+    if (d) stamp(Object.assign(d, patch));
+  });
+}
+
+export function removeDebt(id) {
+  store.update(s => {
+    const d = s.debts.find(x => x.id === id);
+    if (d) tombstone(d);
+    for (const p of s.debtPayments) if (p.debtId === id) tombstone(p);
+  });
+}
+
+/** Записать платёж: уменьшает остаток долга. */
+export function addDebtPayment({ book, debtId, date, amount, note }) {
+  const id = uid('dp');
+  store.update(s => {
+    s.debtPayments.push(stamp({
+      id, book, debtId, date, amount, note: note || '',
+      createdAt: new Date().toISOString(),
+    }));
+    const d = s.debts.find(x => x.id === debtId);
+    if (d) stamp(Object.assign(d, { balance: Math.max(0, (d.balance || 0) - amount) }));
+  });
+  return id;
+}
+
+export function removeDebtPayment(id) {
+  store.update(s => {
+    const p = s.debtPayments.find(x => x.id === id);
+    if (!p) return;
+    tombstone(p);
+    // возвращаем сумму обратно в остаток
+    const d = s.debts.find(x => x.id === p.debtId);
+    if (d) stamp(Object.assign(d, { balance: (d.balance || 0) + p.amount }));
+  });
+}
+
+/** Сверка остатка с выпиской — то, что приводит цифру в соответствие с банком. */
+export function confirmDebtBalance(id, balance) {
+  updateDebt(id, { balance: Math.max(0, balance), confirmedAt: toISODate() });
 }

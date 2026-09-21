@@ -14,6 +14,7 @@ import { getKey, setKey, hasKey, testKey, aiMessage } from './ai.js';
 import { cloudCard } from './shared/js/cloud-ui.js';
 import { runner } from './sync.js';
 import { goalRow, goalSheet, goalsSheet, goalForm } from './goals.js';
+import { debtRow, debtSheet, debtsSheet } from './debts.js';
 
 /* Состояние экранов (не сохраняется — это положение «прокрутки», а не данные) */
 export const ui = {
@@ -248,6 +249,7 @@ export function homeView(t, lang, rerender) {
   const total = D.totalOf(book);
 
   const reserved = D.reservedTotal(book);
+  const debtTotal = D.debtsTotal(book);
 
   nodes.push(el('div.card', {}, [
     el('div.card__title', { text: t('net_worth') }),
@@ -269,6 +271,22 @@ export function homeView(t, lang, rerender) {
         el('div.spacer'),
         el('span.amount.num' + (total - reserved < 0 ? '.neg' : '.pos'),
            { style: { fontSize: '17px' }, text: formatMoney(total - reserved, base) }),
+      ]),
+    ]),
+
+    /* Долги: без них «всего на счетах» показывает не ту картину */
+    debtTotal > 0 && el('div', { style: { marginTop: '12px', paddingTop: '12px',
+      borderTop: '1px solid var(--line-soft)' } }, [
+      el('div.hstack.small', {}, [
+        el('span.muted', { text: t('debt_total') }),
+        el('div.spacer'),
+        el('span.num.neg', { text: '−' + formatMoney(debtTotal, base, { decimals: 0 }) }),
+      ]),
+      el('div.hstack', { style: { marginTop: '6px' } }, [
+        el('span.small', { style: { fontWeight: '620' }, text: t('net_worth_real') }),
+        el('div.spacer'),
+        el('span.amount.num' + (total - debtTotal < 0 ? '.neg' : ''),
+           { style: { fontSize: '17px' }, text: formatMoney(total - debtTotal, base) }),
       ]),
     ]),
   ]));
@@ -331,6 +349,20 @@ export function homeView(t, lang, rerender) {
       ]),
       ...goals.slice(0, 3).map(g => goalRow(t, lang, g,
         (goal) => goalSheet({ t, lang, book, goal, onDone: rerender }))),
+    ]));
+  }
+
+  /* Долги */
+  const debts = D.debtsOf(book);
+  if (debts.length) {
+    nodes.push(el('div.card', {}, [
+      el('div.card__head', {}, [
+        el('div.card__title', { text: t('debt_title') }),
+        el('button.btn.btn--sm.btn--ghost', { text: t('see_all'),
+          onclick: () => debtsSheet({ t, lang, book, onDone: rerender }) }),
+      ]),
+      el('div.list', {}, debts.slice(0, 3).map(d => debtRow(t, lang, d,
+        (debt) => debtSheet({ t, lang, book, debt, onDone: rerender })))),
     ]));
   }
 
@@ -580,6 +612,7 @@ export function settingsView(t, lang, rerender, i18n) {
     el('div.list', {}, [
       navRow('👛', t('books_title'), () => booksSheet(t, rerender)),
       navRow('🎯', t('goal_title'), () => goalsSheet({ t, lang, book, onDone: rerender })),
+      navRow('💳', t('debt_title'), () => debtsSheet({ t, lang, book, onDone: rerender })),
       navRow('🏦', t('accounts'), () => accountsSheet(t, book, rerender)),
       navRow('📥', t('imp_menu'), () => importSheet({ t, lang, book, onDone: rerender })),
       navRow('🏷️', t('categories'), () => categoriesSheet(t, book, rerender)),

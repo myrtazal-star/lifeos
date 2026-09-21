@@ -14,6 +14,8 @@ const SHELL = [
   './views.js',
   './news.js',
   './goals.js',
+  './debts.js',
+  './debt-math.js',
   './csv.js',
   './zip.js',
   './ai.js',
