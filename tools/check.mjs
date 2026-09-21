@@ -48,7 +48,9 @@ async function overflow(label) {
 }
 
 console.log(`\n── Проверка ${app} ──`);
-await page.goto(`${BASE}/apps/${app}/`, { waitUntil: 'networkidle0', timeout: 20000 });
+const url = process.env.APP_URL || `${BASE}/apps/${app}/`;
+console.log(`  адрес: ${url}`);
+await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
 await new Promise(r => setTimeout(r, 600));
 
 const m0 = await overflow('стартовый экран');
