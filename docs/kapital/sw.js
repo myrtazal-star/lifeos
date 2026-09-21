@@ -2,7 +2,7 @@
    Страница — «сначала сеть» (чтобы обновления доходили),
    код и стили — «из кэша, обновить в фоне» (чтобы открывалось мгновенно). */
 
-const VERSION = 'kapital-v1-202609210933';
+const VERSION = 'kapital-v1-202609210947';
 const SHELL = [
   './',
   './index.html',
@@ -12,6 +12,9 @@ const SHELL = [
   './dict.js',
   './forms.js',
   './views.js',
+  './tax-mx.js',
+  './nomina.js',
+  './nomina-view.js',
   './shared/css/base.css',
   './shared/js/store.js',
   './shared/js/i18n.js',

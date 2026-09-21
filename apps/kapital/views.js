@@ -8,6 +8,7 @@ import { LANGS } from './shared/js/i18n.js';
 import { canPromptInstall, promptInstall, isIOS, isStandalone } from './shared/js/pwa.js';
 import * as D from './data.js';
 import { txForm, accountForm, categoryForm, recurringForm } from './forms.js';
+import { nominaSheet } from './nomina-view.js';
 
 /* Состояние экранов (не сохраняется — это положение «прокрутки», а не данные) */
 export const ui = {
@@ -456,6 +457,7 @@ export function settingsView(t, lang, rerender, i18n) {
       navRow('🏦', t('accounts'), () => accountsSheet(t, book, rerender)),
       navRow('🏷️', t('categories'), () => categoriesSheet(t, book, rerender)),
       navRow('🔁', t('recurring'), () => recurringSheet(t, lang, book, rerender)),
+      book === 'empresa' && navRow('🧾', t('nom_menu'), () => nominaSheet({ t, lang, onDone: rerender })),
     ]),
   ]));
 
@@ -532,6 +534,7 @@ export function settingsView(t, lang, rerender, i18n) {
   return nodes;
 }
 
+/* В списке могут быть false (пункты только для одной книги) — их отсеивает mount */
 function navRow(emoji, title, onclick) {
   return el('button.row', { onclick }, [
     el('div.avatar', { text: emoji }),
