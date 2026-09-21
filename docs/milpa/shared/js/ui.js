@@ -64,6 +64,7 @@ export const icons = {
   heart:   svg('<path d="M12 20.5 4.3 13a4.8 4.8 0 0 1 6.8-6.8l.9.9.9-.9A4.8 4.8 0 0 1 19.7 13Z"/>'),
   brief:   svg('<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8.5 7V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5V7"/>'),
   user:    svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+  news:    svg('<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h11A1.5 1.5 0 0 1 17 6.5V19H5a2 2 0 0 1-2-2Z"/><path d="M17 9h2.5A1.5 1.5 0 0 1 21 10.5V17a2 2 0 0 1-2 2h-2"/><line x1="6.5" y1="9" x2="13.5" y2="9"/><line x1="6.5" y1="12.5" x2="13.5" y2="12.5"/><line x1="6.5" y1="16" x2="11" y2="16"/>'),
 };
 
 export function icon(name, cls) {

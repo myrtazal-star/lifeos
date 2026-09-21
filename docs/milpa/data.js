@@ -67,8 +67,10 @@ const seed = {
     lang: null,
     theme: 'dark',
     base: 'MXN',
-    fx: { USD: 18.5 },            // сколько MXN за 1 USD
+    fx: { USD: 17.5 },            // сколько MXN за 1 USD (обновляется из ленты)
     fxUpdated: null,
+    fxSource: null,
+    fxAuto: true,                 // false — курс задан вручную, не трогаем
     book: 'personal',
   },
   books: [

@@ -30,6 +30,17 @@ for (const app of APPS) {
   const sw = await readFile(swPath, 'utf8');
   await writeFile(swPath, sw.replace(/const VERSION = '([^']+)'/, `const VERSION = '$1-${stamp}'`));
 
+  // Лента новостей должна лежать внутри папки приложения: офлайн-кэш
+  // не может обслуживать файлы выше своей области.
+  if (app === 'milpa') {
+    try {
+      await mkdir(resolve(out, 'data'), { recursive: true });
+      await cp(resolve(ROOT, 'data', 'news.json'), resolve(out, 'data', 'news.json'));
+    } catch {
+      console.warn('  (ленты новостей нет — запустите node tools/fetch-news.mjs)');
+    }
+  }
+
   const files = await countFiles(out);
   console.log(`  ${app.padEnd(8)} → docs/${app}  (${files} файлов)`);
 }

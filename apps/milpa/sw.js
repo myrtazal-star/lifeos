@@ -12,6 +12,8 @@ const SHELL = [
   './dict.js',
   './forms.js',
   './views.js',
+  './news.js',
+  './data/news.json',
   './tax-mx.js',
   './nomina.js',
   './nomina-view.js',
@@ -61,6 +63,20 @@ self.addEventListener('fetch', event => {
         return fresh;
       } catch {
         return (await caches.match('./index.html')) || Response.error();
+      }
+    })());
+    return;
+  }
+
+  // Новости должны быть свежими: сеть в приоритете, кэш — на случай её отсутствия
+  if (url.pathname.includes('/data/')) {
+    event.respondWith((async () => {
+      try {
+        const fresh = await fetch(req);
+        if (fresh.ok) (await caches.open(VERSION)).put(req, fresh.clone());
+        return fresh;
+      } catch {
+        return (await caches.match(req)) || Response.error();
       }
     })());
     return;

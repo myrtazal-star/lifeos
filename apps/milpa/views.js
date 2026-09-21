@@ -472,12 +472,35 @@ export function settingsView(t, lang, rerender, i18n) {
     field(t('fx_rate'), input({
       inputmode: 'decimal', value: String(s.fx.USD ?? ''),
       onchange: e => {
-        const v = parseMoney(e.target.value) / 100;
-        if (v > 0) D.store.update(st => { st.settings.fx.USD = v; st.settings.fxUpdated = new Date().toISOString(); });
+        // курс держим с точностью до сотых долей сентаво — деньги здесь не при чём
+        const v = Number(String(e.target.value).replace(',', '.').replace(/[^\d.]/g, ''));
+        if (v > 0) D.store.update(st => {
+          st.settings.fx.USD = v;
+          st.settings.fxUpdated = toISODate();
+          st.settings.fxSource = null;
+          st.settings.fxAuto = false;      // свой курс важнее автоматического
+        });
         rerender();
       },
     })),
     el('div.tiny.muted-3', { style: { marginTop: '4px' }, text: t('fx_hint') }),
+
+    el('div.switch-row', { style: { marginTop: '10px' } }, [
+      el('span.small', { text: t('fx_auto') }),
+      el('label.switch', {}, [
+        el('input', {
+          type: 'checkbox', checked: s.fxAuto !== false,
+          onchange: e => {
+            D.store.update(st => { st.settings.fxAuto = e.target.checked; });
+            rerender();
+          },
+        }),
+        el('span'),
+      ]),
+    ]),
+    el('div.tiny.muted-3', { text: t('fx_auto_hint') }),
+    s.fxSource && el('div.tiny.muted-3', { style: { marginTop: '4px' },
+      text: `${s.fxSource}${s.fxUpdated ? ' · ' + s.fxUpdated : ''}` }),
   ]));
 
   /* Вид */

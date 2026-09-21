@@ -7,6 +7,7 @@ import { registerSW, applyTheme, watchSystemTheme } from './shared/js/pwa.js';
 import * as D from './data.js';
 import { dict } from './dict.js';
 import { homeView, txView, reportsView, settingsView } from './views.js';
+import { newsView } from './news.js';
 import { txForm } from './forms.js';
 
 const i18n = createI18n(dict, D.S().settings.lang || undefined);
@@ -25,6 +26,7 @@ const tabs = [
   { id: 'home',     icon: 'home',   get label() { return t('tab_home'); },     get title() { return t('app_name'); },      view: () => homeView(t, i18n.lang, rerender) },
   { id: 'tx',       icon: 'list',   get label() { return t('tab_tx'); },       get title() { return t('tab_tx'); },        view: () => txView(t, i18n.lang, rerender) },
   { id: 'reports',  icon: 'chart',  get label() { return t('tab_reports'); },  get title() { return t('tab_reports'); },   view: () => reportsView(t, i18n.lang, rerender) },
+  { id: 'news',     icon: 'news',   get label() { return t('tab_news'); },     get title() { return t('tab_news'); },      view: () => newsView(t, i18n.lang, rerender) },
   { id: 'settings', icon: 'gear',   get label() { return t('tab_settings'); }, get title() { return t('tab_settings'); },  view: () => settingsView(t, i18n.lang, rerender, i18n) },
 ];
 
@@ -43,7 +45,8 @@ const fab = el('button.fab', {
 });
 document.body.append(fab);
 
-function syncFab() { fab.style.display = shell.current === 'settings' ? 'none' : 'grid'; }
+const NO_FAB = new Set(['settings', 'news']);
+function syncFab() { fab.style.display = NO_FAB.has(shell.current) ? 'none' : 'grid'; }
 syncFab();
 window.addEventListener('hashchange', syncFab);
 

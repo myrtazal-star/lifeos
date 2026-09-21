@@ -326,3 +326,60 @@ const nomina = {
 };
 
 for (const lang of Object.keys(dict)) Object.assign(dict[lang], nomina[lang]);
+
+/* Вкладка «Новости» и автоматический курс. */
+const news = {
+  ru: {
+    tab_news: 'Новости',
+    news_fx: 'Курс доллара',
+    news_fx_unit: 'песо за 1 доллар',
+    news_fx_unofficial: 'рыночный, не официальный',
+    news_fx_manual: 'В расчётах используется ваш курс: {v}',
+    news_refresh: 'Обновить',
+    news_loading: 'Загружаю новости',
+    news_none: 'Новостей пока нет',
+    news_none_hint: 'Лента обновляется раз в сутки. Проверьте подключение к интернету.',
+    news_offline: 'Нет связи — показаны последние сохранённые новости',
+    news_updated: 'Обновлено {d} в {h}',
+    news_sources_note: 'Заголовки и ссылки на издания. Полные тексты открываются на их сайтах.',
+    fx_auto: 'Обновлять курс автоматически',
+    fx_auto_hint: 'Курс берётся раз в сутки вместе с новостями. Если введёте свой — автоматическое обновление отключится.',
+    fx_official_hint: 'Для официального курса Banxico (FIX) нужен бесплатный токен — скажите, и я подключу.',
+  },
+  es: {
+    tab_news: 'Noticias',
+    news_fx: 'Tipo de cambio',
+    news_fx_unit: 'pesos por dólar',
+    news_fx_unofficial: 'de mercado, no oficial',
+    news_fx_manual: 'En los cálculos se usa tu tipo de cambio: {v}',
+    news_refresh: 'Actualizar',
+    news_loading: 'Cargando noticias',
+    news_none: 'Aún no hay noticias',
+    news_none_hint: 'La lista se actualiza una vez al día. Revisa tu conexión.',
+    news_offline: 'Sin conexión: se muestran las últimas noticias guardadas',
+    news_updated: 'Actualizado el {d} a las {h}',
+    news_sources_note: 'Titulares y enlaces a los medios. Los textos completos se abren en sus sitios.',
+    fx_auto: 'Actualizar el tipo de cambio solo',
+    fx_auto_hint: 'Se toma una vez al día junto con las noticias. Si escribes el tuyo, se desactiva.',
+    fx_official_hint: 'Para el tipo de cambio oficial de Banxico (FIX) hace falta un token gratuito.',
+  },
+  en: {
+    tab_news: 'News',
+    news_fx: 'Exchange rate',
+    news_fx_unit: 'pesos per dollar',
+    news_fx_unofficial: 'market rate, not official',
+    news_fx_manual: 'Calculations use your own rate: {v}',
+    news_refresh: 'Refresh',
+    news_loading: 'Loading news',
+    news_none: 'No news yet',
+    news_none_hint: 'The feed updates once a day. Check your connection.',
+    news_offline: 'Offline — showing the last saved news',
+    news_updated: 'Updated {d} at {h}',
+    news_sources_note: 'Headlines and links to publishers. Full articles open on their sites.',
+    fx_auto: 'Update the rate automatically',
+    fx_auto_hint: 'Taken once a day together with the news. Entering your own switches it off.',
+    fx_official_hint: 'The official Banxico (FIX) rate needs a free token.',
+  },
+};
+
+for (const lang of Object.keys(dict)) Object.assign(dict[lang], news[lang]);
