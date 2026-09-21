@@ -9,6 +9,8 @@ import { canPromptInstall, promptInstall, isIOS, isStandalone, requestNotificati
   from './shared/js/pwa.js';
 import * as D from './data.js';
 import { habitForm, countForm } from './forms.js';
+import { cloudCard } from './shared/js/cloud-ui.js';
+import { runner } from './sync.js';
 
 export const ui = {
   day: toISODate(),
@@ -432,7 +434,7 @@ function tile(label, value) {
 
 export function settingsView(t, lang, rerender, i18n) {
   const s = D.S().settings;
-  const nodes = [];
+  const nodes = [cloudCard({ t, runner, rerender })];
 
   if (!isStandalone()) {
     nodes.push(el('div.card', { style: { borderColor: 'var(--accent)' } }, [

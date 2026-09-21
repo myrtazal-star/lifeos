@@ -2,6 +2,7 @@
    Суммы везде — целые центы. Знак не хранится: направление задаёт поле kind. */
 
 import { createStore, uid } from './shared/js/store.js';
+import { stamp, tombstone, alive } from './shared/js/sync.js';
 import { toISODate, addDays, addMonths, startOfMonth, endOfMonth } from './shared/js/format.js';
 
 export const BOOKS = ['personal', 'empresa'];
@@ -44,13 +45,16 @@ const DEFAULT_CATEGORIES = {
   },
 };
 
+/* Ключи начальных записей заданы жёстко, а не случайно: на двух устройствах
+   набор по умолчанию должен получиться одинаковым, иначе после первой
+   синхронизации счета и категории задвоятся. */
 function buildDefaultCategories() {
   const out = [];
   for (const book of BOOKS) {
     for (const kind of ['expense', 'income']) {
-      for (const [icon, name, color] of DEFAULT_CATEGORIES[book][kind]) {
-        out.push({ id: uid('c'), book, kind, icon, name, color });
-      }
+      DEFAULT_CATEGORIES[book][kind].forEach(([icon, name, color], i) => {
+        out.push({ id: `c-${book}-${kind}-${i}`, book, kind, icon, name, color });
+      });
     }
   }
   return out;
@@ -78,9 +82,9 @@ const seed = {
     { id: 'empresa', icon: '🏢', name: DEFAULT_BOOK_NAMES.empresa },
   ],
   accounts: [
-    { id: uid('a'), book: 'personal', name: 'Наличные', type: 'cash', currency: 'MXN', opening: 0, color: '--c1', archived: false },
-    { id: uid('a'), book: 'personal', name: 'Карта', type: 'card', currency: 'MXN', opening: 0, color: '--c2', archived: false },
-    { id: uid('a'), book: 'empresa', name: 'Счёт компании', type: 'bank', currency: 'MXN', opening: 0, color: '--c3', archived: false },
+    { id: 'a-cash', book: 'personal', name: 'Наличные', type: 'cash', currency: 'MXN', opening: 0, color: '--c1', archived: false },
+    { id: 'a-card', book: 'personal', name: 'Карта', type: 'card', currency: 'MXN', opening: 0, color: '--c2', archived: false },
+    { id: 'a-company', book: 'empresa', name: 'Счёт компании', type: 'bank', currency: 'MXN', opening: 0, color: '--c3', archived: false },
   ],
   categories: buildDefaultCategories(),
   tx: [],
@@ -93,6 +97,8 @@ export const store = createStore({
   legacyKey: 'lifeos.kapital',
   version: 2,
   seed,
+  // отметку времени на настройках ставит само хранилище
+  stampField: 'settings',
   migrate: (data, from) => {
     // v1 → v2: у кошельков появились названия, которые можно менять.
     // Данные, заведённые до этой версии, названий не имеют — дописываем.
@@ -121,24 +127,39 @@ export function setBookName(id, name) {
   store.update(s => {
     const b = s.books.find(x => x.id === id);
     // пустое поле не оставляем — возвращаем значение по умолчанию
-    if (b) b.name = String(name || '').trim() || DEFAULT_BOOK_NAMES[id] || id;
+    if (b) stamp(Object.assign(b, {
+      name: String(name || '').trim() || DEFAULT_BOOK_NAMES[id] || id,
+    }));
   });
 }
 
-export const accountsOf = (book, { withArchived = false } = {}) =>
-  S().accounts.filter(a => a.book === book && (withArchived || !a.archived));
+/* Удалённые записи остаются в данных помеченными — иначе второе устройство,
+   не знающее об удалении, вернёт их обратно. На экранах их не видно. */
+export const liveTx = () => alive(S().tx);
+export const liveAccounts = () => alive(S().accounts);
+export const liveCategories = () => alive(S().categories);
+export const liveRecurring = () => alive(S().recurring);
 
-export const accountById = (id) => S().accounts.find(a => a.id === id) || null;
+export const accountsOf = (book, { withArchived = false } = {}) =>
+  liveAccounts().filter(a => a.book === book && (withArchived || !a.archived));
+
+export const accountById = (id) => {
+  const a = S().accounts.find(x => x.id === id);
+  return a && !a.deleted ? a : null;
+};
 
 export const categoriesOf = (book, kind) =>
-  S().categories.filter(c => c.book === book && (!kind || c.kind === kind));
+  liveCategories().filter(c => c.book === book && (!kind || c.kind === kind));
 
-export const categoryById = (id) => S().categories.find(c => c.id === id) || null;
+export const categoryById = (id) => {
+  const c = S().categories.find(x => x.id === id);
+  return c && !c.deleted ? c : null;
+};
 
 /** Операции книги, свежие сверху. */
 export function txOf(book, { from, to, accountId, categoryId, kind, query } = {}) {
   const q = query?.trim().toLowerCase();
-  return S().tx
+  return liveTx()
     .filter(t => t.book === book)
     .filter(t => !from || t.date >= from)
     .filter(t => !to || t.date <= to)
@@ -172,7 +193,7 @@ export function balanceOf(accountId) {
   const acc = accountById(accountId);
   if (!acc) return 0;
   let sum = acc.opening || 0;
-  for (const t of S().tx) {
+  for (const t of liveTx()) {
     if (t.kind === 'income' && t.account === accountId) sum += t.amount;
     else if (t.kind === 'expense' && t.account === accountId) sum -= t.amount;
     else if (t.kind === 'transfer') {
@@ -193,7 +214,7 @@ export function totalOf(book) {
     ни доходом, ни расходом — это перекладывание из кармана в карман. */
 export function periodStats(book, from, to) {
   let income = 0, expense = 0, count = 0;
-  for (const t of S().tx) {
+  for (const t of liveTx()) {
     if (t.book !== book || t.date < from || t.date > to) continue;
     count++;
     const acc = accountById(t.account);
@@ -207,7 +228,7 @@ export function periodStats(book, from, to) {
 /** Разбивка по категориям за период, от большего к меньшему. */
 export function byCategory(book, from, to, kind = 'expense') {
   const map = new Map();
-  for (const t of S().tx) {
+  for (const t of liveTx()) {
     if (t.book !== book || t.kind !== kind || t.date < from || t.date > to) continue;
     const acc = accountById(t.account);
     const v = toBase(t.amount, t.currency || acc?.currency || S().settings.base);
@@ -241,7 +262,7 @@ export function monthlySeries(book, months = 6, anchor = toISODate()) {
 export function addTx(data) {
   const id = uid('t');
   store.update(s => {
-    s.tx.push({
+    s.tx.push(stamp({
       id, createdAt: new Date().toISOString(),
       book: data.book, kind: data.kind, date: data.date,
       amount: data.amount, amountTo: data.amountTo ?? null,
@@ -249,7 +270,7 @@ export function addTx(data) {
       account: data.account, toAccount: data.toAccount ?? null,
       category: data.category ?? null,
       party: data.party || '', note: data.note || '',
-    });
+    }));
   });
   return id;
 }
@@ -257,62 +278,69 @@ export function addTx(data) {
 export function updateTx(id, patch) {
   store.update(s => {
     const t = s.tx.find(x => x.id === id);
-    if (t) Object.assign(t, patch, { updatedAt: new Date().toISOString() });
+    if (t) stamp(Object.assign(t, patch));
   });
 }
 
 export function removeTx(id) {
-  store.update(s => { s.tx = s.tx.filter(t => t.id !== id); });
+  store.update(s => {
+    const t = s.tx.find(x => x.id === id);
+    if (t) tombstone(t);
+  });
 }
 
 export function addAccount(data) {
   const id = uid('a');
-  store.update(s => s.accounts.push({ id, archived: false, ...data }));
+  store.update(s => s.accounts.push(stamp({ id, archived: false, ...data })));
   return id;
 }
 
 export function updateAccount(id, patch) {
   store.update(s => {
     const a = s.accounts.find(x => x.id === id);
-    if (a) Object.assign(a, patch);
+    if (a) stamp(Object.assign(a, patch));
   });
 }
 
 export function removeAccount(id) {
   store.update(s => {
-    s.accounts = s.accounts.filter(a => a.id !== id);
-    s.tx = s.tx.filter(t => t.account !== id && t.toAccount !== id);
-    s.recurring = s.recurring.filter(r => r.account !== id);
+    const a = s.accounts.find(x => x.id === id);
+    if (a) tombstone(a);
+    // операции и платежи удалённого счёта тоже помечаем — поодиночке,
+    // чтобы второе устройство узнало о каждом
+    for (const t of s.tx) if (t.account === id || t.toAccount === id) tombstone(t);
+    for (const r of s.recurring) if (r.account === id) tombstone(r);
   });
 }
 
 export function txCountForAccount(id) {
-  return S().tx.filter(t => t.account === id || t.toAccount === id).length;
+  return liveTx().filter(t => t.account === id || t.toAccount === id).length;
 }
 
 export function addCategory(data) {
   const id = uid('c');
-  store.update(s => s.categories.push({ id, ...data }));
+  store.update(s => s.categories.push(stamp({ id, ...data })));
   return id;
 }
 
 export function updateCategory(id, patch) {
   store.update(s => {
     const c = s.categories.find(x => x.id === id);
-    if (c) Object.assign(c, patch);
+    if (c) stamp(Object.assign(c, patch));
   });
 }
 
 export function removeCategory(id) {
   store.update(s => {
-    s.categories = s.categories.filter(c => c.id !== id);
-    for (const t of s.tx) if (t.category === id) t.category = null;
-    for (const r of s.recurring) if (r.category === id) r.category = null;
+    const c = s.categories.find(x => x.id === id);
+    if (c) tombstone(c);
+    for (const t of s.tx) if (t.category === id) { t.category = null; stamp(t); }
+    for (const r of s.recurring) if (r.category === id) { r.category = null; stamp(r); }
   });
 }
 
 export function txCountForCategory(id) {
-  return S().tx.filter(t => t.category === id).length;
+  return liveTx().filter(t => t.category === id).length;
 }
 
 /* ─────────── Регулярные платежи ─────────── */
@@ -338,29 +366,32 @@ export function nextDate(rec, after) {
 
 export function addRecurring(data) {
   const id = uid('r');
-  store.update(s => s.recurring.push({ id, active: true, ...data }));
+  store.update(s => s.recurring.push(stamp({ id, active: true, ...data })));
   return id;
 }
 
 export function updateRecurring(id, patch) {
   store.update(s => {
     const r = s.recurring.find(x => x.id === id);
-    if (r) Object.assign(r, patch);
+    if (r) stamp(Object.assign(r, patch));
   });
 }
 
 export function removeRecurring(id) {
-  store.update(s => { s.recurring = s.recurring.filter(r => r.id !== id); });
+  store.update(s => {
+    const r = s.recurring.find(x => x.id === id);
+    if (r) tombstone(r);
+  });
 }
 
 /** Регулярные платежи, у которых срок наступил. */
 export function dueRecurring(book, today = toISODate()) {
-  return S().recurring.filter(r => r.book === book && r.active && r.next <= today);
+  return liveRecurring().filter(r => r.book === book && r.active && r.next <= today);
 }
 
 /** Записать регулярный платёж как обычную операцию и сдвинуть срок. */
 export function postRecurring(id) {
-  const r = S().recurring.find(x => x.id === id);
+  const r = liveRecurring().find(x => x.id === id);
   if (!r) return null;
   const txId = addTx({
     book: r.book, kind: r.kind, date: r.next,
@@ -373,7 +404,7 @@ export function postRecurring(id) {
 }
 
 export function skipRecurring(id) {
-  const r = S().recurring.find(x => x.id === id);
+  const r = liveRecurring().find(x => x.id === id);
   if (r) updateRecurring(id, { next: nextDate(r, r.next) });
 }
 

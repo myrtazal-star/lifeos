@@ -9,7 +9,7 @@
     "build": "node tools/build.mjs",
     "dev": "node tools/serve.mjs",
     "check": "node tools/check.mjs",
-    "test": "node tools/test-nomina.mjs && node tools/test-csv.mjs",
+    "test": "node tools/test-nomina.mjs && node tools/test-csv.mjs && node tools/test-sync.mjs && node tools/test-sync-runner.mjs",
     "check:migration": "node tools/check-migration.mjs",
     "check:import": "node tools/check-import.mjs",
     "news": "node tools/fetch-news.mjs",

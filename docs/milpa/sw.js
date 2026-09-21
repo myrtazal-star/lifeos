@@ -2,7 +2,7 @@
    Страница — «сначала сеть» (чтобы обновления доходили),
    код и стили — «из кэша, обновить в фоне» (чтобы открывалось мгновенно). */
 
-const VERSION = 'milpa-v1-202609211043';
+const VERSION = 'milpa-v1-202609211109';
 const SHELL = [
   './',
   './index.html',
@@ -27,6 +27,11 @@ const SHELL = [
   './shared/js/format.js',
   './shared/js/pwa.js',
   './shared/js/shell.js',
+  './shared/js/sync.js',
+  './shared/js/sync-runner.js',
+  './shared/js/cloud.js',
+  './shared/js/cloud-ui.js',
+  './sync.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',

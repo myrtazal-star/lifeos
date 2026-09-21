@@ -9,6 +9,7 @@ import * as D from './data.js';
 import { dict } from './dict.js';
 import { todayView, habitsView, statsView, settingsView, ui } from './views.js';
 import { habitForm } from './forms.js';
+import { runner, watchSync } from './sync.js';
 
 const i18n = createI18n(dict, D.S().settings.lang || undefined);
 const t = i18n.t;
@@ -72,5 +73,10 @@ setInterval(() => {
   }
   lastNotified = today;
 }, 30000);
+
+/* Обмен с другими устройствами. Запускается только если выполнен вход;
+   без него приложение работает ровно как раньше, на своём устройстве. */
+runner.start();
+watchSync(() => { if (shell.current === 'settings') rerender(); });
 
 registerSW('./sw.js');

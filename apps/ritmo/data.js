@@ -2,6 +2,7 @@
    logs хранит числа: для привычки-отметки это 0/1, для количественной — сколько сделано. */
 
 import { createStore, uid } from './shared/js/store.js';
+import { stamp, tombstone, alive, now as syncNow } from './shared/js/sync.js';
 import { toISODate, addDays, startOfWeek, startOfMonth, endOfMonth, daysBetween }
   from './shared/js/format.js';
 
@@ -27,10 +28,13 @@ const STARTER = [
   ['✅', 'Итоги дня',              'work',   'check', null,        0,     'daily', null,    'evening'],
 ];
 
-export function starterHabits() {
+/* fixedIds — для набора по умолчанию: на двух устройствах он должен
+   получиться одинаковым, иначе после первой синхронизации привычки
+   задвоятся. При добавлении набора вручную ключи новые. */
+export function starterHabits({ fixedIds = false } = {}) {
   const today = toISODate();
-  return STARTER.map(([icon, title, area, type, unit, target, freq, days, when], i) => ({
-    id: uid('h'), icon, title, area, type, unit, target,
+  return STARTER.map(([icon, title, area, type, unit, target, freq, days, when], i) => stamp({
+    id: fixedIds ? 'h-' + i : uid('h'), icon, title, area, type, unit, target,
     freq, days: days || [1, 2, 3, 4, 5, 6, 0], perWeek: 3,
     when, color: AREA_COLOR[area], active: true, order: i,
     createdDate: today, createdAt: new Date().toISOString(),
@@ -50,25 +54,36 @@ const seed = {
     weekStart: 1,
     reminders: { enabled: false, time: '20:00' },
   },
-  habits: starterHabits(),
-  logs: {},     // 'YYYY-MM-DD' → { habitId: число }
-  notes: {},    // 'YYYY-MM-DD' → текст
-  mood: {},     // 'YYYY-MM-DD' → 1..5
+  habits: starterHabits({ fixedIds: true }),
+  logs: {},      // 'YYYY-MM-DD' → { habitId: число }
+  logsMeta: {},  // 'YYYY-MM-DD' → { habitId: когда изменено } — для слияния
+  notes: {},     // 'YYYY-MM-DD' → текст
+  notesMeta: {},
+  mood: {},      // 'YYYY-MM-DD' → 1..5
+  moodMeta: {},
 };
 
 export const store = createStore({
   key: 'lifeos.ritmo',
   version: 1,
   seed,
+  stampField: 'settings',
   migrate: (data) => data,
 });
 
 export const S = () => store.state;
 
-export const activeHabits = () =>
-  S().habits.filter(h => h.active).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+/* Удалённые привычки остаются помеченными, чтобы второе устройство
+   не вернуло их обратно. На экранах их не видно. */
+export const liveHabits = () => alive(S().habits);
 
-export const habitById = (id) => S().habits.find(h => h.id === id) || null;
+export const activeHabits = () =>
+  liveHabits().filter(h => h.active).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+export const habitById = (id) => {
+  const h = S().habits.find(x => x.id === id);
+  return h && !h.deleted ? h : null;
+};
 
 /* ─────── Отметки ─────── */
 
@@ -121,6 +136,7 @@ export function toggle(habitId, iso, delta) {
     if (next === 0) delete s.logs[iso][habitId];
     else s.logs[iso][habitId] = next;
     if (!Object.keys(s.logs[iso]).length) delete s.logs[iso];
+    markLog(s, iso, habitId);
   });
 }
 
@@ -131,7 +147,16 @@ export function setValue(habitId, iso, value) {
     if (v === 0) delete s.logs[iso][habitId];
     else s.logs[iso][habitId] = v;
     if (!Object.keys(s.logs[iso]).length) delete s.logs[iso];
+    markLog(s, iso, habitId);
   });
+}
+
+/* Время правки хранится по каждой ячейке: утренняя отметка с телефона
+   и вечерняя с компьютера не должны затирать друг друга. */
+function markLog(s, iso, habitId) {
+  if (!s.logsMeta) s.logsMeta = {};
+  if (!s.logsMeta[iso]) s.logsMeta[iso] = {};
+  s.logsMeta[iso][habitId] = syncNow();
 }
 
 /** Удобный шаг прибавления: для больших целей — крупнее. */
@@ -239,29 +264,34 @@ export function byArea(from, to) {
 
 export function addHabit(data) {
   const id = uid('h');
-  store.update(s => s.habits.push({
+  store.update(s => s.habits.push(stamp({
     id, active: true, order: s.habits.length,
     createdDate: toISODate(),
     createdAt: new Date().toISOString(),
     color: AREA_COLOR[data.area] || '--c8',
     ...data,
-  }));
+  })));
   return id;
 }
 
 export function updateHabit(id, patch) {
   store.update(s => {
     const h = s.habits.find(x => x.id === id);
-    if (h) Object.assign(h, patch, { color: AREA_COLOR[patch.area ?? h.area] || h.color });
+    if (h) stamp(Object.assign(h, patch, { color: AREA_COLOR[patch.area ?? h.area] || h.color }));
   });
 }
 
 export function removeHabit(id) {
   store.update(s => {
-    s.habits = s.habits.filter(h => h.id !== id);
+    const h = s.habits.find(x => x.id === id);
+    if (h) tombstone(h);
+    // отметки удалённой привычки тоже снимаем — со временем правки,
+    // иначе второе устройство вернёт их обратно
     for (const day of Object.keys(s.logs)) {
+      if (s.logs[day][id] == null) continue;
       delete s.logs[day][id];
       if (!Object.keys(s.logs[day]).length) delete s.logs[day];
+      markLog(s, day, id);
     }
   });
 }
@@ -279,6 +309,8 @@ export function setNote(iso, text) {
   store.update(s => {
     if (text?.trim()) s.notes[iso] = text.trim();
     else delete s.notes[iso];
+    if (!s.notesMeta) s.notesMeta = {};
+    s.notesMeta[iso] = syncNow();
   });
 }
 
@@ -286,13 +318,15 @@ export function setMood(iso, value) {
   store.update(s => {
     if (value) s.mood[iso] = value;
     else delete s.mood[iso];
+    if (!s.moodMeta) s.moodMeta = {};
+    s.moodMeta[iso] = syncNow();
   });
 }
 
 /* ─────── Выгрузка ─────── */
 
 export function toCSV() {
-  const habits = S().habits;
+  const habits = liveHabits();
   const days = Object.keys(S().logs).sort();
   const head = ['Дата', ...habits.map(h => h.title), 'Самочувствие', 'Заметка'];
   const esc = v => {

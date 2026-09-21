@@ -3,7 +3,7 @@
    Слой намеренно изолирован: когда подключим облако (Supabase),
    меняется только реализация save/load, экраны не трогаем. */
 
-export function createStore({ key, version, seed, migrate, legacyKey }) {
+export function createStore({ key, version, seed, migrate, legacyKey, stampField }) {
   let migrated = false;
   let state = load();
   const subs = new Set();
@@ -72,7 +72,17 @@ export function createStore({ key, version, seed, migrate, legacyKey }) {
 
   /** Изменить состояние. mutator получает черновик и меняет его на месте. */
   function update(mutator) {
+    // Настройки правятся из многих мест; отмечаем их временем здесь, а не
+    // в каждом обработчике — иначе где-нибудь забудется и слияние
+    // возьмёт неверную сторону. Сравниваем до и после, чтобы отметка
+    // не обновлялась при правке чего-то другого.
+    const before = stampField ? JSON.stringify(state[stampField]) : null;
+
     mutator(state);
+
+    if (stampField && state[stampField] && JSON.stringify(state[stampField]) !== before) {
+      state[stampField].updatedAt = new Date().toISOString();
+    }
     state.updatedAt = new Date().toISOString();
     dirty = true;
     if (saveTimer) clearTimeout(saveTimer);
@@ -117,6 +127,15 @@ export function createStore({ key, version, seed, migrate, legacyKey }) {
       persist();
       notify();
       return { ok: true };
+    },
+
+    /** Заменить состояние целиком — используется после слияния с сервером.
+        В отличие от update(), ничего не отмечает временем: пришедшие
+        отметки уже проставлены той стороной, где правка и произошла. */
+    replace(next) {
+      state = next;
+      persist();
+      notify();
     },
 
     /** Полный сброс к начальному состоянию. */

@@ -8,6 +8,7 @@ import * as D from './data.js';
 import { dict } from './dict.js';
 import { homeView, txView, reportsView, settingsView } from './views.js';
 import { newsView } from './news.js';
+import { runner, watchSync } from './sync.js';
 import { txForm } from './forms.js';
 
 const i18n = createI18n(dict, D.S().settings.lang || undefined);
@@ -58,5 +59,10 @@ window.addEventListener('store:error', () => toast(t('storage_full'), { error: t
 
 /* Регулярные платежи: если срок наступил, подсветим на обзоре */
 if (D.dueRecurring(D.S().settings.book).length) shell.go('home');
+
+/* Обмен с другими устройствами. Запускается только если выполнен вход;
+   без него приложение работает ровно как раньше, на своём устройстве. */
+runner.start();
+watchSync(() => { if (shell.current === 'settings') rerender(); });
 
 registerSW('./sw.js');

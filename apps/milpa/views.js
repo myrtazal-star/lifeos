@@ -11,6 +11,8 @@ import { txForm, accountForm, categoryForm, recurringForm } from './forms.js';
 import { nominaSheet } from './nomina-view.js';
 import { importSheet } from './import-view.js';
 import { getKey, setKey, hasKey, testKey, aiMessage } from './ai.js';
+import { cloudCard } from './shared/js/cloud-ui.js';
+import { runner } from './sync.js';
 
 /* Состояние экранов (не сохраняется — это положение «прокрутки», а не данные) */
 export const ui = {
@@ -436,6 +438,9 @@ export function settingsView(t, lang, rerender, i18n) {
   const book = s.book;
 
   const nodes = [bookSwitcher(t, rerender)];
+
+  /* Общий доступ с другого устройства */
+  nodes.push(cloudCard({ t, runner, rerender }));
 
   /* Установка на телефон */
   if (!isStandalone()) {
