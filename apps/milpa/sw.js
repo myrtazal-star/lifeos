@@ -18,6 +18,7 @@ const SHELL = [
   './debt-math.js',
   './csv.js',
   './zip.js',
+  './cfdi.js',
   './ai.js',
   './import-view.js',
   './data/news.json',

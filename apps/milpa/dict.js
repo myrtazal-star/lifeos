@@ -391,7 +391,7 @@ for (const lang of Object.keys(dict)) Object.assign(dict[lang], news[lang]);
 const imports = {
   ru: {
     imp_title: 'Загрузить выписку', imp_menu: 'Загрузить выписку',
-    imp_intro: 'Выгрузите движения из интернет-банка и загрузите сюда — подойдут CSV, TXT, архив ZIP и PDF. Прежде чем что-то записать, приложение покажет, что именно оно разобрало.',
+    imp_intro: 'Загрузите сюда выписку из банка или архив счетов-фактур из SAT — подойдут CSV, TXT, ZIP, PDF и XML. Прежде чем что-то записать, приложение покажет, что именно оно разобрало.',
     imp_where: 'BBVA: бизнес-счета выгружают CSV и TXT, личные — PDF. PDF читается распознаванием, поэтому для него нужен ключ доступа и он стоит несколько песо за выписку.',
     imp_choose: 'Выбрать файл', imp_other_file: 'Другой файл',
     imp_rows: 'строк с данными: {n}',
@@ -415,7 +415,7 @@ const imports = {
   },
   es: {
     imp_title: 'Importar estado de cuenta', imp_menu: 'Importar estado de cuenta',
-    imp_intro: 'Descarga tus movimientos de la banca en línea y súbelos aquí: CSV, TXT, ZIP o PDF. Antes de guardar nada verás qué se reconoció.',
+    imp_intro: 'Sube aquí tu estado de cuenta o el ZIP de CFDI del SAT: CSV, TXT, ZIP, PDF o XML. Antes de guardar nada verás qué se reconoció.',
     imp_where: 'BBVA: las cuentas empresariales exportan CSV y TXT; las personales, PDF. El PDF se lee con reconocimiento y requiere clave.',
     imp_choose: 'Elegir archivo', imp_other_file: 'Otro archivo',
     imp_rows: 'filas con datos: {n}',
@@ -439,7 +439,7 @@ const imports = {
   },
   en: {
     imp_title: 'Import statement', imp_menu: 'Import statement',
-    imp_intro: 'Export your transactions from online banking and upload them here — CSV, TXT, ZIP or PDF. Before anything is saved you see what was recognised.',
+    imp_intro: 'Upload a bank statement or your SAT invoice archive — CSV, TXT, ZIP, PDF or XML. Before anything is saved you see what was recognised.',
     imp_where: 'BBVA: business accounts export CSV and TXT, personal ones PDF. PDFs are read by recognition and need an API key.',
     imp_choose: 'Choose file', imp_other_file: 'Another file',
     imp_rows: 'data rows: {n}',
@@ -862,3 +862,27 @@ const debts = {
 };
 
 for (const lang of Object.keys(dict)) Object.assign(dict[lang], debts[lang]);
+
+/* Счета-фактуры из архива SAT. */
+const cfdiPack = {
+  ru: {
+    cfdi_none: 'В архиве нет счетов-фактур — похоже, это не выгрузка из SAT',
+    cfdi_from_sat: 'Счета-фактуры из SAT · {rfc}',
+    cfdi_skipped: 'Пропущено документов: {n} — подтверждения оплаты, переводы и повторы',
+    cfdi_hint: 'Выгрузите на портале SAT «facturas emitidas» и «recibidas» архивом — приложение разберёт их точно, без распознавания.',
+  },
+  es: {
+    cfdi_none: 'El archivo no trae CFDI: no parece una descarga del SAT',
+    cfdi_from_sat: 'CFDI del SAT · {rfc}',
+    cfdi_skipped: 'Documentos omitidos: {n} (complementos de pago, traslados y repetidos)',
+    cfdi_hint: 'Descarga del portal del SAT tus facturas emitidas y recibidas en ZIP.',
+  },
+  en: {
+    cfdi_none: 'No invoices in this archive — it does not look like a SAT export',
+    cfdi_from_sat: 'Invoices from SAT · {rfc}',
+    cfdi_skipped: 'Skipped documents: {n} (payment receipts, transfers and duplicates)',
+    cfdi_hint: 'Download your issued and received invoices from the SAT portal as a ZIP.',
+  },
+};
+
+for (const lang of Object.keys(dict)) Object.assign(dict[lang], cfdiPack[lang]);

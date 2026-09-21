@@ -277,6 +277,12 @@ export function addTx(data) {
       account: data.account, toAccount: data.toAccount ?? null,
       category: data.category ?? null,
       party: data.party || '', note: data.note || '',
+      /* Данные счёта-фактуры. UUID делает повторную загрузку безошибочной,
+         IVA и RFC нужны для налоговой отчётности и вычитаемости расхода. */
+      uuid: data.uuid || null,
+      rfc: data.rfc || null,
+      iva: data.iva ?? null,
+      cfdiType: data.cfdiType || null,
     }));
   });
   return id;
@@ -317,6 +323,27 @@ export function removeAccount(id) {
     // чтобы второе устройство узнало о каждом
     for (const t of s.tx) if (t.account === id || t.toAccount === id) tombstone(t);
     for (const r of s.recurring) if (r.account === id) tombstone(r);
+  });
+}
+
+/** Номера уже загруженных счетов-фактур — для отсева повторов. */
+export function knownCfdiUuids(book) {
+  const out = new Set();
+  for (const t of liveTx()) {
+    if (t.book === book && t.uuid) out.add(String(t.uuid).toUpperCase());
+  }
+  return out;
+}
+
+/** Налоговый номер владельца кошелька: определяет, свой счёт или чужой. */
+export function bookRfc(id) {
+  return S().books.find(b => b.id === id)?.rfc || '';
+}
+
+export function setBookRfc(id, rfc) {
+  store.update(s => {
+    const b = s.books.find(x => x.id === id);
+    if (b) stamp(Object.assign(b, { rfc: String(rfc || '').trim().toUpperCase() }));
   });
 }
 

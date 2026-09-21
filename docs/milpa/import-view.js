@@ -9,6 +9,7 @@ import { decodeBytes, parseTable, findHeaderRow, guessMapping,
          buildTransactions, fingerprint } from './csv.js';
 import { looksLikeZip, listZip, pickStatement, supported as zipSupported } from './zip.js';
 import { hasKey, readStatement, pdfToBase64, aiMessage, PDF_MAX_BYTES } from './ai.js';
+import { collectCfdi, guessOwnRfc, looksLikeCfdi } from './cfdi.js';
 import * as D from './data.js';
 
 const st = {
@@ -22,6 +23,7 @@ const st = {
   busy: false,
   aiRows: [],        // [{ tx, include, duplicate }]
   aiInfo: null,
+  cfdiSkipped: 0,
 };
 
 export function importSheet({ t, lang, book, onDone }) {
@@ -92,6 +94,14 @@ export function importSheet({ t, lang, book, onDone }) {
       return null;
     }
 
+    /* Архив с портала SAT: внутри десятки XML со счетами-фактурами.
+       Это не выписка, и разбирать его надо иначе — точно, а не угадыванием. */
+    const xmls = entries.filter(e => /\.xml$/i.test(e.name));
+    if (xmls.length) {
+      await readCfdiPack(xmls, name);
+      return null;
+    }
+
     const tables = entries.filter(e => /\.(csv|txt)$/i.test(e.name));
     if (!tables.length) {
       const inside = entries.map(e => e.name).slice(0, 4).join(', ') || '—';
@@ -134,6 +144,79 @@ export function importSheet({ t, lang, book, onDone }) {
         onClose: () => resolve(picked),
       });
     });
+  }
+
+  /* ─────── Счета-фактуры из архива SAT ─────── */
+
+  async function readCfdiPack(entries, archiveName) {
+    st.mode = 'pdf';          // тот же экран проверки списком
+    st.fileName = archiveName;
+    st.busy = true;
+    st.aiRows = [];
+    st.aiInfo = null;
+    render();
+
+    try {
+      const files = [];
+      for (const e of entries) {
+        const buffer = await e.read();
+        files.push({ name: e.name, xml: decodeBytes(buffer) });
+      }
+
+      const mine = files.filter(f => looksLikeCfdi(f.xml));
+      if (!mine.length) {
+        st.mode = 'table';
+        toast(t('cfdi_none'), { error: true, ms: 7000 });
+        return;
+      }
+
+      /* Налоговый номер определяет, какой счёт доход, а какой расход.
+         Если он не задан, берём самый частый в пачке: собственный RFC
+         стоит в каждом документе, чужие — по одному разу. */
+      let rfc = D.bookRfc(book);
+      if (!rfc) {
+        const guess = guessOwnRfc(mine);
+        if (guess.length) { rfc = guess[0].rfc; D.setBookRfc(book, rfc); }
+      }
+
+      const { rows, skipped } = collectCfdi(mine, rfc);
+      const known = D.knownCfdiUuids(book);
+
+      st.cfdiSkipped = skipped.length;
+      st.aiRows = rows.map(doc => {
+        const duplicate = !!doc.uuid && known.has(doc.uuid);
+        return {
+          tx: {
+            date: doc.date, kind: doc.kind, amount: doc.total,
+            merchant: doc.counterparty.name || doc.counterparty.rfc,
+            note: doc.note || doc.counterparty.name,
+            category: '', confidence: 'high',
+            uuid: doc.uuid, rfc: doc.counterparty.rfc,
+            iva: doc.iva, cfdiType: doc.type,
+            currency: doc.currency,
+          },
+          include: !duplicate,
+          duplicate,
+        };
+      });
+      st.aiInfo = {
+        period: t('cfdi_from_sat', { rfc }),
+        account: '',
+        currency: rows[0]?.currency || null,
+        cfdi: true,
+      };
+
+      if (!st.aiRows.length) {
+        st.mode = 'table';
+        toast(t('cfdi_none'), { error: true, ms: 7000 });
+      }
+    } catch (e) {
+      st.mode = 'table';
+      toast(t('imp_zip_bad'), { error: true, ms: 6000 });
+    } finally {
+      st.busy = false;
+      render();
+    }
   }
 
   /* ─────── Выписка в PDF ─────── */
@@ -225,6 +308,8 @@ export function importSheet({ t, lang, book, onDone }) {
       ]),
       st.aiInfo?.period && el('div.tiny.muted-3', { style: { marginTop: '4px' },
         text: st.aiInfo.period + (st.aiInfo.account ? ' · ' + st.aiInfo.account : '') }),
+      st.aiInfo?.cfdi && st.cfdiSkipped > 0 && el('div.tiny.muted-3', { style: { marginTop: '3px' },
+        text: t('cfdi_skipped', { n: st.cfdiSkipped }) }),
     ]);
 
     const rows = st.aiRows.map((row, i) => {
@@ -246,7 +331,11 @@ export function importSheet({ t, lang, book, onDone }) {
         el('div.row__main', {}, [
           el('div.row__title', { text: tx.note || tx.merchant || '—' }),
           el('div.row__sub', {
-            text: [relativeDay(tx.date, lang, t), duplicate ? t('imp_already') : null]
+            // контрагента показываем отдельно: в счёте-фактуре «кто» важнее
+            // описания товара, а в заголовок помещается только одно
+            text: [relativeDay(tx.date, lang, t),
+                   tx.merchant && tx.merchant !== tx.note ? tx.merchant : null,
+                   duplicate ? t('imp_already') : null]
               .filter(Boolean).join(' · '),
           }),
         ]),
@@ -475,7 +564,9 @@ export function importSheet({ t, lang, book, onDone }) {
         book, kind: tx.kind, date: tx.date,
         amount: tx.amount, currency: account.currency,
         account: st.accountId, category: null,
-        party: '', note: tx.note,
+        party: tx.merchant || '', note: tx.note,
+        // из счёта-фактуры переносим то, что нужно для налогов
+        uuid: tx.uuid, rfc: tx.rfc, iva: tx.iva, cfdiType: tx.cfdiType,
       });
     }
 
