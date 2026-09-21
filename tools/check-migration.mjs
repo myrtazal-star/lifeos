@@ -5,11 +5,18 @@
    загрузки названия появились, а операции остались на месте. */
 
 import puppeteer from 'puppeteer-core';
+import { readFileSync } from 'node:fs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const URL = process.env.APP_URL || 'http://localhost:5173/apps/milpa/';
 
 const problems = [];
+
+/* Номер версии берём из самого приложения, а не переписываем здесь руками:
+   иначе при следующей миграции тест начнёт ругаться на верный код. */
+const VERSION = Number(
+  readFileSync(import.meta.dirname + '/../apps/milpa/data.js', 'utf8')
+    .match(/version:\s*(\d+)/)[1]);
 
 /* Состояние в том виде, в каком оно лежит у пользователя с версии 1:
    у кошельков нет поля name. */
@@ -80,7 +87,7 @@ console.log('  в переключателе:      ', JSON.stringify(after.switc
 console.log('  операций сохранилось: ', after.txCount, `(«${after.txNote}»)`);
 console.log('  остаток на экране:    ', after.balance);
 
-if (after.version !== 2) problems.push(`версия не обновилась: ${after.version}`);
+if (after.version !== VERSION) problems.push(`версия не обновилась: ${after.version}`);
 if (after.names[0] !== 'Kira Kellar') problems.push(`личный кошелёк назван «${after.names[0]}»`);
 if (after.names[1] !== 'KOSHTUR') problems.push(`кошелёк компании назван «${after.names[1]}»`);
 if (!after.switcher.includes('Kira Kellar')) problems.push('переключатель не показывает новое название');
@@ -163,7 +170,7 @@ console.log('  ', JSON.stringify(carried, null, 0));
 if (!carried.подхвачено) problems.push('данные из-под прежнего имени не подхватились');
 if (carried.операций !== 1) problems.push('операции потерялись при переименовании приложения');
 if (carried.счетов !== 2) problems.push('счета потерялись при переименовании приложения');
-if (carried.версия !== 2) problems.push('версия не обновилась при переносе');
+if (carried.версия !== VERSION) problems.push('версия не обновилась при переносе');
 if (!carried.староеНаМесте) problems.push('прежняя запись удалена — нет запасной копии');
 
 await browser.close();
