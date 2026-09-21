@@ -52,7 +52,7 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, '0.0.0.0', () => {
   const ips = Object.values(networkInterfaces()).flat()
     .filter(i => i && i.family === 'IPv4' && !i.internal).map(i => i.address);
-  console.log(`\n  Локально:  http://localhost:${PORT}/apps/kapital/`);
-  for (const ip of ips) console.log(`  С телефона: http://${ip}:${PORT}/apps/kapital/`);
+  console.log(`\n  Локально:  http://localhost:${PORT}/apps/milpa/`);
+  for (const ip of ips) console.log(`  С телефона: http://${ip}:${PORT}/apps/milpa/`);
   console.log('');
 });

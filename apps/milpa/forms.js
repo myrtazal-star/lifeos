@@ -1,4 +1,4 @@
-/* Формы Kapital: операция, счёт, категория, регулярный платёж. */
+/* Формы Milpa: операция, счёт, категория, регулярный платёж. */
 
 import { el, sheet, confirmSheet, toast, haptic, field, input, textarea, select, segmented, icons }
   from './shared/js/ui.js';

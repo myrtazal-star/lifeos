@@ -1,4 +1,4 @@
-/* Модель данных Kapital и все расчёты.
+/* Модель данных Milpa и все расчёты.
    Суммы везде — целые центы. Знак не хранится: направление задаёт поле kind. */
 
 import { createStore, uid } from './shared/js/store.js';
@@ -86,7 +86,9 @@ const seed = {
 };
 
 export const store = createStore({
-  key: 'lifeos.kapital',
+  key: 'lifeos.milpa',
+  // приложение называлось Kapital — данные, заведённые тогда, подхватываются
+  legacyKey: 'lifeos.kapital',
   version: 2,
   seed,
   migrate: (data, from) => {

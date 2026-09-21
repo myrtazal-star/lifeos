@@ -6,7 +6,7 @@ import { resolve, join } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DIST = resolve(ROOT, 'docs');
-const APPS = ['kapital', 'ritmo'];
+const APPS = ['milpa', 'ritmo'];
 
 await rm(DIST, { recursive: true, force: true });
 await mkdir(DIST, { recursive: true });
@@ -33,6 +33,14 @@ for (const app of APPS) {
   const files = await countFiles(out);
   console.log(`  ${app.padEnd(8)} → docs/${app}  (${files} файлов)`);
 }
+
+/* Приложение Milpa раньше называлось Kapital и жило по другому адресу.
+   Оставляем переадресацию, чтобы старая ссылка и уже установленный значок
+   не вели в никуда. Можно удалить, когда старый адрес перестанет
+   использоваться. */
+await mkdir(resolve(DIST, 'kapital'), { recursive: true });
+await writeFile(resolve(DIST, 'kapital', 'index.html'), legacyRedirect('../milpa/'));
+console.log('  переадресация → docs/kapital');
 
 /* Страница-указатель: откуда ставить оба приложения. */
 await writeFile(resolve(DIST, 'index.html'), landingPage());
@@ -66,6 +74,34 @@ async function countFiles(dir) {
   return n;
 }
 
+function legacyRedirect(target) {
+  return `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Приложение переехало</title>
+<meta http-equiv="refresh" content="0; url=${target}">
+<style>body{margin:0;display:grid;place-items:center;min-height:100dvh;
+background:#0b0d10;color:#e8ecf2;font:16px -apple-system,system-ui,sans-serif;text-align:center}
+a{color:#34d399}</style>
+</head>
+<body>
+<div>
+  <p>Приложение теперь называется <b>Milpa</b>.</p>
+  <p><a href="${target}">Открыть</a></p>
+</div>
+<script>
+  // снимаем старый офлайн-кэш, иначе он продолжит открывать прежнюю версию
+  navigator.serviceWorker?.getRegistrations?.().then(rs => rs.forEach(r => {
+    if (r.scope.includes('/kapital/')) r.unregister();
+  }));
+  location.replace('${target}');
+</script>
+</body>
+</html>`;
+}
+
 function landingPage() {
   return `<!doctype html>
 <html lang="ru" data-theme="dark">
@@ -74,7 +110,7 @@ function landingPage() {
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Мои приложения</title>
 <meta name="theme-color" content="#0b0d10">
-<link rel="stylesheet" href="./kapital/shared/css/base.css">
+<link rel="stylesheet" href="./milpa/shared/css/base.css">
 <style>
   .app { padding: 28px 20px; gap: 18px; }
   .hero { text-align: center; padding: 24px 0 8px; }
@@ -85,7 +121,7 @@ function landingPage() {
           border: 1px solid var(--line-soft); }
   .tile img { width: 58px; height: 58px; border-radius: 15px; }
   .tile h2 { font-size: 17px; }
-  .tile--kapital h2 { color: #34d399; }
+  .tile--milpa h2 { color: #34d399; }
   .tile--ritmo h2 { color: #8b6dff; }
   .tile p { color: var(--text-2); font-size: 13.5px; margin-top: 3px; }
   .how { background: var(--surface-2); border-radius: var(--r-lg); padding: 18px;
@@ -100,10 +136,10 @@ function landingPage() {
     <p>Откройте нужное и добавьте на экран «Домой» — дальше работают как обычные приложения, в том числе без интернета.</p>
   </div>
 
-  <a class="tile tile--kapital" href="./kapital/">
-    <img src="./kapital/icons/icon-192.png" alt="">
+  <a class="tile tile--milpa" href="./milpa/">
+    <img src="./milpa/icons/icon-192.png" alt="">
     <div>
-      <h2>Kapital</h2>
+      <h2>Milpa</h2>
       <p>Финансы: личные и по компании, песо и доллары, отчёты</p>
     </div>
   </a>

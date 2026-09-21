@@ -1,6 +1,6 @@
 export const dict = {
   ru: {
-    app_name: 'Kapital',
+    app_name: 'Milpa',
     tab_home: 'Обзор', tab_tx: 'Операции', tab_reports: 'Отчёты', tab_settings: 'Ещё',
 
     book_personal: 'Личное', book_empresa: 'Компания',
@@ -76,7 +76,7 @@ export const dict = {
   },
 
   es: {
-    app_name: 'Kapital',
+    app_name: 'Milpa',
     tab_home: 'Resumen', tab_tx: 'Movimientos', tab_reports: 'Reportes', tab_settings: 'Más',
     book_personal: 'Personal', book_empresa: 'Empresa', book_switch: 'Cartera',
     books_title: 'Carteras',
@@ -139,7 +139,7 @@ export const dict = {
   },
 
   en: {
-    app_name: 'Kapital',
+    app_name: 'Milpa',
     tab_home: 'Overview', tab_tx: 'Transactions', tab_reports: 'Reports', tab_settings: 'More',
     book_personal: 'Personal', book_empresa: 'Business', book_switch: 'Wallet',
     books_title: 'Wallets',

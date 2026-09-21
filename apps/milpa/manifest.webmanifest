@@ -1,6 +1,6 @@
 {
-  "name": "Kapital — финансы",
-  "short_name": "Kapital",
+  "name": "Milpa — финансы",
+  "short_name": "Milpa",
   "description": "Личные и деловые финансы: расходы, доходы, счета в песо и долларах, отчёты.",
   "start_url": "./index.html",
   "scope": "./",

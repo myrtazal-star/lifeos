@@ -1,4 +1,4 @@
-/* Экраны Kapital. Каждая функция возвращает массив узлов для области .screen */
+/* Экраны Milpa. Каждая функция возвращает массив узлов для области .screen */
 
 import { el, icons, sheet, confirmSheet, toast, segmented, emptyState,
          downloadFile, pickFile, field, input, select, haptic } from './shared/js/ui.js';
@@ -507,11 +507,11 @@ export function settingsView(t, lang, rerender, i18n) {
     el('p.tiny.muted-3', { style: { marginBottom: '12px' }, text: t('backup_hint') }),
     el('div.stack', { style: { gap: '9px' } }, [
       el('button.btn.btn--ghost.btn--block', { text: t('export'), onclick: () => {
-        downloadFile(`kapital-${toISODate()}.json`, D.store.export());
+        downloadFile(`milpa-${toISODate()}.json`, D.store.export());
         toast(t('export_done'));
       } }),
       el('button.btn.btn--ghost.btn--block', { text: t('export_csv'), onclick: () => {
-        downloadFile(`kapital-${book}-${toISODate()}.csv`, D.toCSV(book), 'text/csv');
+        downloadFile(`milpa-${book}-${toISODate()}.csv`, D.toCSV(book), 'text/csv');
         toast(t('export_done'));
       } }),
       el('button.btn.btn--ghost.btn--block', { text: t('import'), onclick: async () => {

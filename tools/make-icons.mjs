@@ -119,8 +119,8 @@ function render(size, layers) {
 
 /* ─────── Рисунки приложений ─────── */
 
-/** Kapital — три восходящих столбика (рост капитала). */
-function kapitalLayers(S, { maskable = false } = {}) {
+/** Milpa — три восходящих столбика (рост капитала). */
+function milpaLayers(S, { maskable = false } = {}) {
   const bgRadius = maskable ? S / 2 : S * 0.225;
   const bg = maskable
     ? roundedRect(S / 2, S / 2, S, S, 0)          // во весь квадрат: систему сама обрежет
@@ -169,7 +169,7 @@ function ritmoLayers(S, { maskable = false } = {}) {
 /* ─────── Сборка ─────── */
 
 const APPS = {
-  kapital: kapitalLayers,
+  milpa: milpaLayers,
   ritmo: ritmoLayers,
 };
 

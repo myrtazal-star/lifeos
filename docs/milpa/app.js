@@ -1,4 +1,4 @@
-/* Kapital — точка входа. */
+/* Milpa — точка входа. */
 
 import { createI18n } from './shared/js/i18n.js';
 import { createShell } from './shared/js/shell.js';

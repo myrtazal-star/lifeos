@@ -3,7 +3,7 @@
    Слой намеренно изолирован: когда подключим облако (Supabase),
    меняется только реализация save/load, экраны не трогаем. */
 
-export function createStore({ key, version, seed, migrate }) {
+export function createStore({ key, version, seed, migrate, legacyKey }) {
   let migrated = false;
   let state = load();
   const subs = new Set();
@@ -18,6 +18,13 @@ export function createStore({ key, version, seed, migrate }) {
     let raw = null;
     try { raw = localStorage.getItem(key); }
     catch { /* приватный режим Safari — работаем в памяти */ }
+
+    // Приложение могло быть переименовано: забираем данные, заведённые под
+    // прежним именем. Старую запись не удаляем — пусть останется запасной копией.
+    if (!raw && legacyKey) {
+      try { raw = localStorage.getItem(legacyKey); } catch {}
+      if (raw) migrated = true;
+    }
 
     if (!raw) return structuredClone(seed);
 
@@ -97,7 +104,9 @@ export function createStore({ key, version, seed, migrate }) {
 
       const incoming = parsed?.data ?? parsed;
       if (!incoming || typeof incoming !== 'object') return { ok: false, error: 'bad-shape' };
-      if (parsed?.app && parsed.app !== key) return { ok: false, error: 'wrong-app' };
+      // копия могла быть сделана до переименования приложения
+      const known = [key, legacyKey].filter(Boolean);
+      if (parsed?.app && !known.includes(parsed.app)) return { ok: false, error: 'wrong-app' };
 
       let next = incoming;
       if (next.v !== version && typeof migrate === 'function') {

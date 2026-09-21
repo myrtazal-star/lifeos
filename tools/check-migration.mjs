@@ -7,7 +7,7 @@
 import puppeteer from 'puppeteer-core';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const URL = process.env.APP_URL || 'http://localhost:5173/apps/kapital/';
+const URL = process.env.APP_URL || 'http://localhost:5173/apps/milpa/';
 
 const problems = [];
 
@@ -53,7 +53,7 @@ console.log('\n── Миграция данных версии 1 ──');
 // сначала открываем страницу, чтобы получить доступ к localStorage этого адреса
 await page.goto(URL, { waitUntil: 'networkidle0', timeout: 30000 });
 await page.evaluate(state => {
-  localStorage.setItem('lifeos.kapital', JSON.stringify(state));
+  localStorage.setItem('lifeos.milpa', JSON.stringify(state));
 }, V1_STATE);
 
 // перезагружаем — на этом шаге должна сработать миграция
@@ -61,7 +61,7 @@ await page.reload({ waitUntil: 'networkidle0' });
 await new Promise(r => setTimeout(r, 900));
 
 const after = await page.evaluate(() => {
-  const saved = JSON.parse(localStorage.getItem('lifeos.kapital'));
+  const saved = JSON.parse(localStorage.getItem('lifeos.milpa'));
   const tabs = [...document.querySelectorAll('.seg button')].map(b => b.textContent.trim());
   return {
     version: saved.v,
@@ -109,7 +109,7 @@ await page.reload({ waitUntil: 'networkidle0' });
 await new Promise(r => setTimeout(r, 700));
 
 const renamed = await page.evaluate(() =>
-  JSON.parse(localStorage.getItem('lifeos.kapital')).books[0].name);
+  JSON.parse(localStorage.getItem('lifeos.milpa')).books[0].name);
 console.log('  после переименования: ', renamed);
 if (renamed !== 'Личные деньги') problems.push(`переименование не сохранилось: «${renamed}»`);
 
@@ -127,13 +127,44 @@ await page.evaluate(() => {
 });
 await new Promise(r => setTimeout(r, 400));
 const restored = await page.evaluate(() =>
-  JSON.parse(localStorage.getItem('lifeos.kapital')).books[0].name);
+  JSON.parse(localStorage.getItem('lifeos.milpa')).books[0].name);
 console.log('  пустое поле вернуло:  ', restored);
 if (restored !== 'Kira Kellar') problems.push(`пустое название не восстановилось: «${restored}»`);
 
 await page.evaluate(() => { location.hash = '#home'; });
 await new Promise(r => setTimeout(r, 600));
 await page.screenshot({ path: '.shots/books-renamed.png' });
+
+/* Приложение переименовано из Kapital в Milpa: данные, заведённые под
+   прежним ключом, должны подхватиться, а не пропасть. */
+console.log('\n── Данные из-под прежнего имени (Kapital → Milpa) ──');
+await page.evaluate(state => {
+  localStorage.clear();
+  localStorage.setItem('lifeos.kapital', JSON.stringify(state));
+}, V1_STATE);
+await page.reload({ waitUntil: 'networkidle0' });
+await new Promise(r => setTimeout(r, 900));
+
+const carried = await page.evaluate(() => {
+  const now = JSON.parse(localStorage.getItem('lifeos.milpa') || 'null');
+  const old = JSON.parse(localStorage.getItem('lifeos.kapital') || 'null');
+  return {
+    подхвачено: !!now,
+    операций: now?.tx?.length ?? 0,
+    заметка: now?.tx?.[0]?.note,
+    счетов: now?.accounts?.length ?? 0,
+    версия: now?.v,
+    староеНаМесте: !!old,
+    остаток: document.querySelector('.amount--xl')?.textContent?.trim(),
+  };
+});
+console.log('  ', JSON.stringify(carried, null, 0));
+
+if (!carried.подхвачено) problems.push('данные из-под прежнего имени не подхватились');
+if (carried.операций !== 1) problems.push('операции потерялись при переименовании приложения');
+if (carried.счетов !== 2) problems.push('счета потерялись при переименовании приложения');
+if (carried.версия !== 2) problems.push('версия не обновилась при переносе');
+if (!carried.староеНаМесте) problems.push('прежняя запись удалена — нет запасной копии');
 
 await browser.close();
 

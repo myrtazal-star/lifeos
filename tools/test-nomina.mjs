@@ -1,9 +1,9 @@
 /* Проверка налоговых расчётов. Ожидаемые значения посчитаны вручную
    по опубликованной тарифе, а не взяты из самого кода. */
 
-import { TAX_MX, isrMonthly, isrWithholding, resicoRate } from '../apps/kapital/tax-mx.js';
+import { TAX_MX, isrMonthly, isrWithholding, resicoRate } from '../apps/milpa/tax-mx.js';
 import { calcFromGross, calcFromNet, grossFromNet, imssBreakdown, compareRegimes, annualExtras }
-  from '../apps/kapital/nomina.js';
+  from '../apps/milpa/nomina.js';
 
 let failed = 0;
 const money = n => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

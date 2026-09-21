@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Kapital (финансы) и Ritmo (дисциплина) — два приложения на общем ядре",
+  "description": "Milpa (финансы) и Ritmo (дисциплина) — два приложения на общем ядре",
   "scripts": {
     "icons": "node tools/make-icons.mjs",
     "build": "node tools/build.mjs",

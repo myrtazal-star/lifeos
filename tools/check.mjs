@@ -10,7 +10,7 @@ const BASE = process.env.BASE_URL || 'http://localhost:5173';
 const OUT = resolve(import.meta.dirname, '..', '.shots');
 mkdirSync(OUT, { recursive: true });
 
-const app = process.argv[2] || 'kapital';
+const app = process.argv[2] || 'milpa';
 const problems = [];
 
 const browser = await puppeteer.launch({
@@ -58,7 +58,7 @@ console.log(`  ширина: видимая ${m0.client}px, реальная ${m
 await shot('01-home');
 
 /* Сценарий: записать расход через кнопку «+» */
-if (app === 'kapital') {
+if (app === 'milpa') {
   await page.click('.fab');
   await new Promise(r => setTimeout(r, 400));
   await overflow('форма операции');
@@ -79,7 +79,7 @@ if (app === 'kapital') {
   await shot('03-after-save');
 
   const saved = await page.evaluate(() => {
-    const raw = localStorage.getItem('lifeos.kapital');
+    const raw = localStorage.getItem('lifeos.milpa');
     const data = raw ? JSON.parse(raw) : null;
     return { count: data?.tx?.length ?? 0, first: data?.tx?.[0] ?? null };
   });
