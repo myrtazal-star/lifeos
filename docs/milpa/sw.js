@@ -2,7 +2,7 @@
    Страница — «сначала сеть» (чтобы обновления доходили),
    код и стили — «из кэша, обновить в фоне» (чтобы открывалось мгновенно). */
 
-const VERSION = 'milpa-v1-202609211953';
+const VERSION = 'milpa-v1-202609212007';
 const SHELL = [
   './',
   './index.html',
@@ -13,6 +13,7 @@ const SHELL = [
   './forms.js',
   './views.js',
   './news.js',
+  './goals.js',
   './csv.js',
   './zip.js',
   './ai.js',

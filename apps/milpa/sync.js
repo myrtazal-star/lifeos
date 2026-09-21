@@ -12,6 +12,8 @@ const SHAPE = {
     categories: 'id',
     recurring: 'id',
     books: 'id',
+    goals: 'id',
+    savings: 'id',
   },
   singles: ['settings'],
 };

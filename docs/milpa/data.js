@@ -3,7 +3,7 @@
 
 import { createStore, uid } from './shared/js/store.js';
 import { stamp, tombstone, alive } from './shared/js/sync.js';
-import { toISODate, addDays, addMonths, startOfMonth, endOfMonth } from './shared/js/format.js';
+import { toISODate, addDays, addMonths, startOfMonth, endOfMonth, daysBetween } from './shared/js/format.js';
 
 export const BOOKS = ['personal', 'empresa'];
 export const ACCOUNT_TYPES = ['cash', 'bank', 'card', 'savings'];
@@ -89,6 +89,8 @@ const seed = {
   categories: buildDefaultCategories(),
   tx: [],
   recurring: [],
+  goals: [],          // цели накопления
+  savings: [],        // отложенные суммы по целям
 };
 
 export const store = createStore({
@@ -139,6 +141,8 @@ export const liveTx = () => alive(S().tx);
 export const liveAccounts = () => alive(S().accounts);
 export const liveCategories = () => alive(S().categories);
 export const liveRecurring = () => alive(S().recurring);
+export const liveGoals = () => alive(S().goals);
+export const liveSavings = () => alive(S().savings);
 
 export const accountsOf = (book, { withArchived = false } = {}) =>
   liveAccounts().filter(a => a.book === book && (withArchived || !a.archived));
@@ -429,4 +433,126 @@ export function toCSV(book) {
   ].map(esc).join(';'));
   // BOM — чтобы Excel не ломал кириллицу
   return '﻿' + [head.join(';'), ...rows].join('\r\n');
+}
+
+
+/* ─────────── Цели накопления ───────────
+
+   Откладывание — это не расход: деньги остаются вашими, просто помечены
+   под конкретную задачу. Поэтому суммы по целям хранятся отдельно и не
+   трогают остатки на счетах.
+
+   Цель можно привязать к счёту — тогда накопленным считается его остаток,
+   и отмечать вручную ничего не надо. Без привязки цель складывается из
+   того, что вы откладывали. */
+
+export const GOAL_ICONS = ['🎯','🏖️','🏠','🚗','🎓','💍','🚀','🛟','💻','🎸','👶','🏥','✈️','📦'];
+
+export function goalsOf(book, { withDone = false } = {}) {
+  return liveGoals()
+    .filter(g => g.book === book && (withDone || !g.archived))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+export const goalById = (id) => {
+  const g = S().goals.find(x => x.id === id);
+  return g && !g.deleted ? g : null;
+};
+
+export const savingsOf = (goalId) =>
+  liveSavings().filter(s => s.goalId === goalId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+/** Сколько уже отложено на цель, в валюте цели. */
+export function savedFor(goal) {
+  if (!goal) return 0;
+  if (goal.accountId) {
+    const acc = accountById(goal.accountId);
+    if (!acc) return 0;
+    const balance = balanceOf(goal.accountId);
+    return acc.currency === goal.currency ? balance : convertBetween(balance, acc.currency, goal.currency);
+  }
+  return savingsOf(goal.id).reduce((sum, s) => sum + s.amount, 0);
+}
+
+/** Пересчёт между двумя валютами через курс из настроек. */
+export function convertBetween(cents, from, to) {
+  if (from === to) return cents;
+  const usdMxn = Number(S().settings.fx?.USD) || 0;
+  if (!usdMxn) return cents;
+  if (from === 'USD' && to === 'MXN') return Math.round(cents * usdMxn);
+  if (from === 'MXN' && to === 'USD') return Math.round(cents / usdMxn);
+  return cents;
+}
+
+/** Всё о продвижении к цели: сколько осталось, успеваем ли, сколько в месяц. */
+export function goalProgress(goal, today = toISODate()) {
+  const saved = savedFor(goal);
+  const target = goal.target || 0;
+  const remaining = Math.max(0, target - saved);
+  const ratio = target > 0 ? Math.min(1, saved / target) : 0;
+  const done = target > 0 && saved >= target;
+
+  let monthsLeft = null, perMonth = null, overdue = false;
+  if (goal.deadline) {
+    const days = daysBetween(today, goal.deadline);
+    overdue = days < 0 && !done;
+    // меньше месяца до срока всё равно считаем как один месяц
+    monthsLeft = Math.max(0, days) / 30.44;
+    perMonth = monthsLeft > 0 ? Math.ceil(remaining / Math.max(1, monthsLeft)) : remaining;
+  }
+
+  return { saved, target, remaining, ratio, done, monthsLeft, perMonth, overdue };
+}
+
+/** Сколько всего отложено по книге, в основной валюте.
+    На эту сумму уменьшается «свободно» на главном экране. */
+export function reservedTotal(book) {
+  return goalsOf(book).reduce((sum, g) => sum + toBase(savedFor(g), g.currency), 0);
+}
+
+/* ─────────── Изменение ─────────── */
+
+export function addGoal(data) {
+  const id = uid('g');
+  store.update(s => s.goals.push(stamp({
+    id, archived: false, order: s.goals.length,
+    createdDate: toISODate(),
+    ...data,
+  })));
+  return id;
+}
+
+export function updateGoal(id, patch) {
+  store.update(s => {
+    const g = s.goals.find(x => x.id === id);
+    if (g) stamp(Object.assign(g, patch));
+  });
+}
+
+export function removeGoal(id) {
+  store.update(s => {
+    const g = s.goals.find(x => x.id === id);
+    if (g) tombstone(g);
+    // отложенные суммы помечаем поодиночке, чтобы о каждой
+    // узнало второе устройство
+    for (const sv of s.savings) if (sv.goalId === id) tombstone(sv);
+  });
+}
+
+/** Отложить на цель. Остатки на счетах при этом не меняются. */
+export function addSaving({ book, goalId, date, amount, note }) {
+  const id = uid('s');
+  store.update(s => s.savings.push(stamp({
+    id, book, goalId, date, amount, note: note || '',
+    createdAt: new Date().toISOString(),
+  })));
+  return id;
+}
+
+export function removeSaving(id) {
+  store.update(s => {
+    const sv = s.savings.find(x => x.id === id);
+    if (sv) tombstone(sv);
+  });
 }

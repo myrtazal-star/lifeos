@@ -619,3 +619,110 @@ const pdfImport = {
 };
 
 for (const lang of Object.keys(dict)) Object.assign(dict[lang], pdfImport[lang]);
+
+/* Цели накопления. */
+const goals = {
+  ru: {
+    goal_title: 'Цели и накопления',
+    goal_new: 'Новая цель',
+    goal_name: 'На что копим', goal_name_ph: 'Например: отпуск, подушка, машина',
+    goal_target: 'Сколько нужно',
+    goal_deadline: 'К какому числу',
+    goal_deadline_hint: 'Можно не указывать — тогда просто копим без срока.',
+    goal_account: 'Где лежат деньги',
+    goal_account_none: 'Отмечать вручную',
+    goal_account_auto: 'Накопленным считается остаток на этом счёте — отмечать ничего не нужно.',
+    goal_account_manual: 'Вы сами отмечаете, сколько отложили. На остатки по счетам это не влияет.',
+    goal_of: 'из',
+    goal_left: 'осталось {v}',
+    goal_per_month: 'по {v} в месяц',
+    goal_per_month_short: 'В месяц',
+    goal_done: 'Цель достигнута',
+    goal_overdue: 'срок прошёл',
+    goal_put: 'Отложить',
+    goal_added: 'Отложено',
+    goal_history: 'Когда откладывали',
+    goal_saving_note_ph: 'Откуда отложили (необязательно)',
+    goal_saving_hint: 'Это пометка, а не перевод: остатки на счетах не изменятся.',
+    goal_linked: 'Считается по остатку на счёте «{a}»',
+    goal_close: 'Убрать из активных', goal_reopen: 'Вернуть в активные',
+    goal_closed: 'Завершённые',
+    goal_none: 'Целей пока нет',
+    goal_none_hint: 'Отпуск, подушка безопасности, взнос за квартиру — приложение покажет, сколько откладывать в месяц, чтобы успеть.',
+    goal_need_target: 'Укажите сумму цели',
+    goal_delete_warn: 'Вместе с целью удалятся отметки о накоплениях ({n}).',
+    reserved: 'Отложено на цели',
+    free_money: 'Свободно',
+  },
+  es: {
+    goal_title: 'Metas y ahorro', goal_new: 'Nueva meta',
+    goal_name: 'Para qué ahorras', goal_name_ph: 'Ej.: vacaciones, fondo, coche',
+    goal_target: 'Cuánto necesitas', goal_deadline: 'Para qué fecha',
+    goal_deadline_hint: 'Puedes dejarlo vacío y ahorrar sin plazo.',
+    goal_account: 'Dónde está el dinero', goal_account_none: 'Marcar a mano',
+    goal_account_auto: 'Se toma el saldo de esa cuenta: no hay que marcar nada.',
+    goal_account_manual: 'Tú marcas cuánto apartaste. No afecta los saldos.',
+    goal_of: 'de', goal_left: 'faltan {v}', goal_per_month: '{v} al mes',
+    goal_per_month_short: 'Al mes', goal_done: 'Meta alcanzada', goal_overdue: 'plazo vencido',
+    goal_put: 'Apartar', goal_added: 'Apartado', goal_history: 'Cuándo apartaste',
+    goal_saving_note_ph: 'De dónde salió (opcional)',
+    goal_saving_hint: 'Es una marca, no un traspaso: los saldos no cambian.',
+    goal_linked: 'Se calcula con el saldo de «{a}»',
+    goal_close: 'Quitar de activas', goal_reopen: 'Volver a activas', goal_closed: 'Terminadas',
+    goal_none: 'Aún no hay metas',
+    goal_none_hint: 'Vacaciones, fondo de emergencia, enganche: la app te dice cuánto apartar al mes.',
+    goal_need_target: 'Indica el monto de la meta',
+    goal_delete_warn: 'Se borrarán también las marcas de ahorro ({n}).',
+    reserved: 'Apartado en metas', free_money: 'Disponible',
+  },
+  en: {
+    goal_title: 'Goals and savings', goal_new: 'New goal',
+    goal_name: 'What you are saving for', goal_name_ph: 'e.g. holiday, safety net, car',
+    goal_target: 'How much you need', goal_deadline: 'By what date',
+    goal_deadline_hint: 'Optional — leave empty to save without a deadline.',
+    goal_account: 'Where the money sits', goal_account_none: 'Mark by hand',
+    goal_account_auto: 'The balance of that account counts as saved — nothing to mark.',
+    goal_account_manual: 'You mark what you set aside. Account balances are unaffected.',
+    goal_of: 'of', goal_left: '{v} to go', goal_per_month: '{v} per month',
+    goal_per_month_short: 'Per month', goal_done: 'Goal reached', goal_overdue: 'past due',
+    goal_put: 'Set aside', goal_added: 'Set aside', goal_history: 'When you set aside',
+    goal_saving_note_ph: 'Where it came from (optional)',
+    goal_saving_hint: 'This is a note, not a transfer: balances do not change.',
+    goal_linked: 'Counted from the balance of «{a}»',
+    goal_close: 'Move out of active', goal_reopen: 'Move back to active', goal_closed: 'Finished',
+    goal_none: 'No goals yet',
+    goal_none_hint: 'Holiday, safety net, down payment — the app shows how much to set aside each month.',
+    goal_need_target: 'Enter the goal amount',
+    goal_delete_warn: 'The savings marks will be deleted too ({n}).',
+    reserved: 'Set aside for goals', free_money: 'Free to spend',
+  },
+};
+
+for (const lang of Object.keys(dict)) Object.assign(dict[lang], goals[lang]);
+
+/* Финансовый отчёт. */
+const report = {
+  ru: {
+    report_table: 'Отчёт по месяцам',
+    unaccounted: 'Расходы без категории',
+    unaccounted_hint: '{n} операций не разнесены — отчёт по категориям их не показывает',
+    unaccounted_fix: 'Открыть и разнести',
+    vs_prev: 'Стрелки — изменение к прошлому такому же периоду.',
+  },
+  es: {
+    report_table: 'Reporte por mes',
+    unaccounted: 'Gastos sin categoría',
+    unaccounted_hint: '{n} movimientos sin clasificar: no aparecen por categoría',
+    unaccounted_fix: 'Abrir y clasificar',
+    vs_prev: 'Las flechas comparan con el periodo anterior.',
+  },
+  en: {
+    report_table: 'Month by month',
+    unaccounted: 'Expenses without a category',
+    unaccounted_hint: '{n} transactions unclassified — they do not show by category',
+    unaccounted_fix: 'Open and classify',
+    vs_prev: 'Arrows compare with the previous equivalent period.',
+  },
+};
+
+for (const lang of Object.keys(dict)) Object.assign(dict[lang], report[lang]);

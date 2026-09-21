@@ -13,6 +13,7 @@ const SHELL = [
   './forms.js',
   './views.js',
   './news.js',
+  './goals.js',
   './csv.js',
   './zip.js',
   './ai.js',

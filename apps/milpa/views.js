@@ -13,6 +13,7 @@ import { importSheet } from './import-view.js';
 import { getKey, setKey, hasKey, testKey, aiMessage } from './ai.js';
 import { cloudCard } from './shared/js/cloud-ui.js';
 import { runner } from './sync.js';
+import { goalRow, goalSheet, goalsSheet, goalForm } from './goals.js';
 
 /* Состояние экранов (не сохраняется — это положение «прокрутки», а не данные) */
 export const ui = {
@@ -44,6 +45,45 @@ function monthNav(t, lang, rerender) {
       text: formatMonth(ui.month, lang) }),
     el('button.icon-btn', { html: icons.chevR, 'aria-label': 'Следующий месяц',
       onclick: () => { ui.month = addMonths(ui.month, 1); haptic(); rerender(); } }),
+  ]);
+}
+
+/** Доходы, расходы и разница по месяцам за год — то, что обычно
+    и называют финансовым отчётом. */
+function monthTable(t, lang, book, base) {
+  const series = D.monthlySeries(book, 12, ui.month).filter(m => m.count > 0);
+  if (!series.length) return el('div');
+
+  const totals = series.reduce((a, m) => ({
+    income: a.income + m.income, expense: a.expense + m.expense, net: a.net + m.net,
+  }), { income: 0, expense: 0, net: 0 });
+
+  const money = v => formatMoney(v, base, { compact: true, decimals: 0 });
+
+  const line = (label, m, strong = false) => el('div.hstack', {
+    style: {
+      padding: '8px 0', gap: '6px',
+      borderTop: strong ? '1px solid var(--line)' : '1px solid var(--line-soft)',
+      fontWeight: strong ? '650' : '500',
+    },
+  }, [
+    el('span.small', { style: { flex: '1.1', minWidth: '0' }, text: label }),
+    el('span.small.num.pos', { style: { flex: '1', textAlign: 'right' }, text: money(m.income) }),
+    el('span.small.num.neg', { style: { flex: '1', textAlign: 'right' }, text: money(m.expense) }),
+    el('span.small.num', { class: m.net >= 0 ? 'pos' : 'neg',
+      style: { flex: '1', textAlign: 'right' }, text: money(m.net) }),
+  ]);
+
+  return el('div.card', {}, [
+    el('div.card__head', {}, [el('div.card__title', { text: t('report_table') })]),
+    el('div.hstack.tiny.muted-3', { style: { gap: '6px', paddingBottom: '2px' } }, [
+      el('span', { style: { flex: '1.1' }, text: t('month') }),
+      el('span', { style: { flex: '1', textAlign: 'right' }, text: t('month_income') }),
+      el('span', { style: { flex: '1', textAlign: 'right' }, text: t('month_expense') }),
+      el('span', { style: { flex: '1', textAlign: 'right' }, text: t('month_net') }),
+    ]),
+    ...series.map(m => line(formatDate(m.month + '-01', lang, { month: 'short', year: '2-digit' }), m)),
+    line(t('total'), totals, true),
   ]);
 }
 
@@ -127,14 +167,25 @@ function txList(t, lang, list, rerender, { limit } = {}) {
 /* ─────────── Диаграммы ─────────── */
 
 /** Горизонтальные полосы — читаются на телефоне лучше круговых. */
-function barList(rows, base, t) {
+function barList(rows, base, t, prev = null) {
+  // prev — та же разбивка за прошлый период, для стрелок «больше/меньше»
+  const before = prev ? new Map(prev.rows.map(r => [r.id, r.total])) : null;
+
   return el('div.stack', { style: { gap: '11px' } }, rows.map(r => {
     const color = `var(${r.cat?.color || '--c8'})`;
+    const was = before?.get(r.id);
+    const change = was && was > 0 ? Math.round(((r.total - was) / was) * 100) : null;
+    const notable = change != null && Math.abs(change) >= 5;
+
     return el('div', {}, [
       el('div.hstack', { style: { marginBottom: '5px' } }, [
         el('span', { text: (r.cat?.icon || '▫️') + ' ' }),
         el('span.small', { style: { fontWeight: '570' }, text: r.cat?.name || t('uncategorized') }),
         el('div.spacer'),
+        notable && el('span.tiny', {
+          style: { color: change > 0 ? 'var(--neg)' : 'var(--pos)', marginRight: '6px' },
+          text: (change > 0 ? '▲' : '▼') + Math.abs(change) + '%',
+        }),
         el('span.small.num', { style: { fontWeight: '620' }, text: formatMoney(r.total, base, { decimals: 0 }) }),
       ]),
       el('div.bar', {}, [
@@ -196,11 +247,30 @@ export function homeView(t, lang, rerender) {
   }
   const total = D.totalOf(book);
 
+  const reserved = D.reservedTotal(book);
+
   nodes.push(el('div.card', {}, [
     el('div.card__title', { text: t('net_worth') }),
     el('div.amount.amount--xl.num' + (total < 0 ? '.neg' : ''), { text: formatMoney(total, base) }),
     byCurrency.size > 1 && el('div.hstack.small.muted', { style: { marginTop: '8px', flexWrap: 'wrap', gap: '12px' } },
       [...byCurrency].map(([cur, v]) => el('span.num', { text: `${cur}: ${formatMoney(v, cur, { decimals: 0 })}` }))),
+
+    /* Отложенное на цели — не свободные деньги, и это должно быть видно
+       рядом с остатком, а не в отдельном разделе. */
+    reserved > 0 && el('div', { style: { marginTop: '12px', paddingTop: '12px',
+      borderTop: '1px solid var(--line-soft)' } }, [
+      el('div.hstack.small', {}, [
+        el('span.muted', { text: t('reserved') }),
+        el('div.spacer'),
+        el('span.num.muted', { text: '−' + formatMoney(reserved, base, { decimals: 0 }) }),
+      ]),
+      el('div.hstack', { style: { marginTop: '6px' } }, [
+        el('span.small', { style: { fontWeight: '620' }, text: t('free_money') }),
+        el('div.spacer'),
+        el('span.amount.num' + (total - reserved < 0 ? '.neg' : '.pos'),
+           { style: { fontSize: '17px' }, text: formatMoney(total - reserved, base) }),
+      ]),
+    ]),
   ]));
 
   /* Месяц */
@@ -247,6 +317,20 @@ export function homeView(t, lang, rerender) {
     nodes.push(el('div.card', {}, [
       el('div.card__head', {}, [el('div.card__title', { text: t('top_categories') })]),
       barList(cats.rows.slice(0, 5), base, t),
+    ]));
+  }
+
+  /* Цели */
+  const goals = D.goalsOf(book);
+  if (goals.length) {
+    nodes.push(el('div.card', {}, [
+      el('div.card__head', {}, [
+        el('div.card__title', { text: t('goal_title') }),
+        el('button.btn.btn--sm.btn--ghost', { text: t('see_all'),
+          onclick: () => goalsSheet({ t, lang, book, onDone: rerender }) }),
+      ]),
+      ...goals.slice(0, 3).map(g => goalRow(t, lang, g,
+        (goal) => goalSheet({ t, lang, book, goal, onDone: rerender }))),
     ]));
   }
 
@@ -350,6 +434,12 @@ function periodRange(kind, anchor) {
   return ['1970-01-01', '2999-12-31'];
 }
 
+/** Тот же период, но предыдущий — для сравнения. */
+function previousRange(kind, anchor) {
+  const back = kind === 'year' ? -12 : kind === 'quarter' ? -3 : -1;
+  return periodRange(kind, addMonths(anchor, back));
+}
+
 export function reportsView(t, lang, rerender) {
   const book = D.S().settings.book;
   const base = D.S().settings.base;
@@ -391,6 +481,28 @@ export function reportsView(t, lang, rerender) {
     ]),
   ]));
 
+  /* Не разнесённое по категориям: без этого отчёт по категориям
+     показывает не все деньги, а причина остаётся невидимой. */
+  const noCat = cats.rows.find(r => r.id === '__none');
+  if (noCat && ui.reportKind === 'expense') {
+    nodes.push(el('div.card', { style: { borderColor: 'var(--warn)' } }, [
+      el('div.hstack', {}, [
+        el('div', { style: { flex: '1', minWidth: '0' } }, [
+          el('div.small', { style: { fontWeight: '620', color: 'var(--warn)' }, text: t('unaccounted') }),
+          el('div.tiny.muted-3', { style: { marginTop: '3px' },
+            text: t('unaccounted_hint', { n: noCat.count }) }),
+        ]),
+        el('div.amount.num', { style: { fontSize: '16px' },
+          text: formatMoney(noCat.total, base, { decimals: 0 }) }),
+      ]),
+      el('button.btn.btn--sm.btn--ghost.btn--block', {
+        style: { marginTop: '10px' },
+        text: t('unaccounted_fix'),
+        onclick: () => { ui.txFilter = 'expense'; ui.txQuery = ''; location.hash = '#tx'; },
+      }),
+    ]));
+  }
+
   /* Помесячная динамика */
   nodes.push(el('div.card', {}, [
     el('div.card__head', {}, [el('div.card__title', { text: t('report_by_month') })]),
@@ -406,6 +518,8 @@ export function reportsView(t, lang, rerender) {
     ]),
   ]));
 
+  nodes.push(monthTable(t, lang, book, base));
+
   /* По категориям */
   nodes.push(el('div.card', {}, [
     el('div.card__head', {}, [el('div.card__title', { text: t('report_by_category') })]),
@@ -414,7 +528,10 @@ export function reportsView(t, lang, rerender) {
       { value: 'income', label: t('tx_income') },
     ], ui.reportKind, v => { ui.reportKind = v; rerender(); }),
     el('div', { style: { height: '12px' } }),
-    cats.rows.length ? barList(cats.rows, base, t) : el('p.muted.small', { text: t('nothing_yet') }),
+    cats.rows.length
+      ? barList(cats.rows, base, t, D.byCategory(book, ...previousRange(ui.reportPeriod, ui.month), ui.reportKind))
+      : el('p.muted.small', { text: t('nothing_yet') }),
+    cats.rows.length && el('p.tiny.muted-3', { style: { marginTop: '10px' }, text: t('vs_prev') }),
   ]));
 
   /* Крупнейшие расходы */
@@ -462,6 +579,7 @@ export function settingsView(t, lang, rerender, i18n) {
     el('div.card__head', {}, [el('div.card__title', { text: t('data') })]),
     el('div.list', {}, [
       navRow('👛', t('books_title'), () => booksSheet(t, rerender)),
+      navRow('🎯', t('goal_title'), () => goalsSheet({ t, lang, book, onDone: rerender })),
       navRow('🏦', t('accounts'), () => accountsSheet(t, book, rerender)),
       navRow('📥', t('imp_menu'), () => importSheet({ t, lang, book, onDone: rerender })),
       navRow('🏷️', t('categories'), () => categoriesSheet(t, book, rerender)),
