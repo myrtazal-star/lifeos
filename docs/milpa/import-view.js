@@ -7,6 +7,7 @@ import { el, sheet, toast, haptic, field, select, segmented, pickFile }
 import { formatMoney, relativeDay } from './shared/js/format.js';
 import { decodeBytes, parseTable, findHeaderRow, guessMapping,
          buildTransactions, fingerprint } from './csv.js';
+import { looksLikeZip, listZip, pickStatement, supported as zipSupported } from './zip.js';
 import * as D from './data.js';
 
 const st = {
@@ -29,14 +30,19 @@ export function importSheet({ t, lang, book, onDone }) {
   }
 
   async function choose() {
-    const file = await pickFile('.csv,.txt,text/csv,text/plain');
+    // Без фильтра по типу: на iPhone он прячет часть файлов, в том числе
+    // архивы, скачанные из банка.
+    const file = await pickFile();
     if (!file) return;
 
-    const text = decodeBytes(file.buffer);
+    const unpacked = await unwrap(file);
+    if (!unpacked) return;
+
+    const text = decodeBytes(unpacked.buffer);
     const { rows } = parseTable(text);
     if (!rows.length) { toast(t('imp_empty'), { error: true }); return; }
 
-    st.fileName = file.name;
+    st.fileName = unpacked.name;
     st.rows = rows;
     st.headerRow = findHeaderRow(rows);
 
@@ -49,6 +55,77 @@ export function importSheet({ t, lang, book, onDone }) {
     st.dayFirst = saved?.dayFirst ?? true;
 
     render();
+  }
+
+  /** Архив распаковываем, неподходящие форматы объясняем словами. */
+  async function unwrap(file) {
+    const bytes = new Uint8Array(file.buffer);
+    const name = file.name || '';
+
+    if (isPdf(bytes) || /\.pdf$/i.test(name)) {
+      toast(t('imp_pdf'), { error: true, ms: 8000});
+      return null;
+    }
+
+    if (!looksLikeZip(bytes)) {
+      if (/\.xls$/i.test(name)) { toast(t('imp_excel'), { error: true, ms: 8000 }); return null; }
+      return { buffer: file.buffer, name };
+    }
+
+    if (!zipSupported()) { toast(t('imp_zip_old'), { error: true, ms: 8000 }); return null; }
+
+    let entries;
+    try { entries = listZip(file.buffer); }
+    catch { toast(t('imp_zip_bad'), { error: true, ms: 6000 }); return null; }
+
+    // файлы Excel устроены как архив — отличаем их по содержимому
+    if (entries.some(e => e.name === '[Content_Types].xml' || e.name.startsWith('xl/'))) {
+      toast(t('imp_excel'), { error: true, ms: 8000 });
+      return null;
+    }
+
+    const tables = entries.filter(e => /\.(csv|txt)$/i.test(e.name));
+    if (!tables.length) {
+      const inside = entries.map(e => e.name).slice(0, 4).join(', ') || '—';
+      toast(t('imp_zip_empty', { files: inside }), { error: true, ms: 9000 });
+      return null;
+    }
+
+    const chosen = tables.length === 1 ? tables[0] : await askWhich(tables);
+    if (!chosen) return null;
+
+    try {
+      const buffer = await chosen.read();
+      return { buffer, name: `${name} → ${chosen.name}` };
+    } catch {
+      toast(t('imp_zip_bad'), { error: true, ms: 6000 });
+      return null;
+    }
+  }
+
+  const isPdf = (b) => b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46;
+
+  /** Если в архиве несколько таблиц — спрашиваем, какая нужна. */
+  function askWhich(entries) {
+    return new Promise(resolve => {
+      let picked = null;
+      const inner = sheet({
+        title: t('imp_which_file'),
+        body: [
+          el('p.tiny.muted-3', { text: t('imp_which_hint') }),
+          el('div.list', {}, entries.map(e => el('button.row', {
+            onclick: () => { picked = e; inner.close(); },
+          }, [
+            el('div.avatar', { text: '📄' }),
+            el('div.row__main', {}, [
+              el('div.row__title', { text: e.name }),
+              el('div.row__sub', { text: `${Math.max(1, Math.round(e.size / 1024))} КБ` }),
+            ]),
+          ]))),
+        ],
+        onClose: () => resolve(picked),
+      });
+    });
   }
 
   function headers() {

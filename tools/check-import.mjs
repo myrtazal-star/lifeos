@@ -138,6 +138,104 @@ console.log('  ', JSON.stringify(second));
 if (second.новых !== 0) problems.push(`при повторе предложено ${second.новых} новых — защита не сработала`);
 if (second.повторов !== 5) problems.push(`повторов найдено ${second.повторов}, ждали 5`);
 
+/* Банк нередко отдаёт выписку архивом — он должен открываться сам */
+console.log('\n── Выписка внутри архива ──');
+{
+  const { execSync } = await import('node:child_process');
+  const { mkdtempSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+
+  const dir = mkdtempSync(join(tmpdir(), 'zipcheck-'));
+  writeFileSync(join(dir, 'movimientos.csv'), Buffer.from(CSV, 'latin1'));
+  writeFileSync(join(dir, 'leeme.txt'), 'BBVA MEXICO\nEstado de cuenta\n');
+  execSync('zip -q estado.zip movimientos.csv leeme.txt', { cwd: dir });
+  const zipPath = join(dir, 'estado.zip');
+
+  // новый кошелёк, чтобы записи не считались повторами прошлого разбора
+  await page.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem('lifeos.milpa'));
+    d.tx = [];
+    localStorage.setItem('lifeos.milpa', JSON.stringify(d));
+  });
+  await page.reload({ waitUntil: 'networkidle0' });
+  await wait(700);
+  await page.evaluate(label => {
+    [...document.querySelectorAll('.seg button')].find(b => b.textContent.trim() === label)?.click();
+  }, companyLabel);
+  await wait(400);
+  await page.evaluate(() => {
+    [...document.querySelectorAll('.row')].find(r => /Загрузить выписку/.test(r.textContent))?.click();
+  });
+  await wait(600);
+
+  const [zc] = await Promise.all([
+    page.waitForFileChooser(),
+    page.evaluate(() => {
+      [...document.querySelectorAll('.sheet button')]
+        .find(b => /Выбрать файл|Другой файл/.test(b.textContent))?.click();
+    }),
+  ]);
+  await zc.accept([zipPath]);
+  await wait(1200);
+
+  // в архиве две таблицы — приложение должно спросить, какая нужна.
+  // Листов на экране два, поэтому смотрим все заголовки, а не первый.
+  const asked = await page.evaluate(() =>
+    [...document.querySelectorAll('.sheet__title')]
+      .some(n => /Какой файл из архива/.test(n.textContent)));
+  console.log('  спросило, какой файл:', asked);
+  if (!asked) problems.push('при нескольких таблицах в архиве выбор не предложен');
+
+  await page.evaluate(() => {
+    [...document.querySelectorAll('.sheet .row')].find(r => /movimientos\.csv/.test(r.textContent))?.click();
+  });
+  await wait(1500);
+
+  const fromZip = await page.evaluate(() => {
+    const sheet = document.querySelector('.sheet');
+    const tiles = [...sheet.querySelectorAll('.card--flat .amount')].map(n => Number(n.textContent));
+    return {
+      имяФайла: sheet.querySelector('.card--flat .small')?.textContent,
+      кодировка: /DESCRIPCIÓN|NÓMINA|MARTÍNEZ/.test(sheet.textContent),
+      новых: tiles[0],
+    };
+  });
+  console.log('  ', JSON.stringify(fromZip));
+  if (fromZip.новых !== 5) problems.push(`из архива разобрано ${fromZip.новых} операций, ждали 5`);
+  if (!fromZip.кодировка) problems.push('кодировка внутри архива испорчена');
+  if (!/estado\.zip/.test(fromZip.имяФайла || '')) problems.push('не видно, из какого архива взят файл');
+
+  await page.screenshot({ path: '.shots/import-zip.png' });
+}
+
+/* PDF объясняется словами, а не молчаливым отказом */
+console.log('\n── PDF вместо таблицы ──');
+{
+  const { writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const pdfPath = join(tmpdir(), 'estado.pdf');
+  writeFileSync(pdfPath, '%PDF-1.4\n% фальшивый файл для проверки\n');
+
+  await page.evaluate(() => {
+    [...document.querySelectorAll('.sheet button')]
+      .find(b => /Выбрать файл|Другой файл/.test(b.textContent))?.click();
+  }).catch(() => {});
+  const [pc] = await Promise.all([
+    page.waitForFileChooser(),
+    page.evaluate(() => {
+      [...document.querySelectorAll('.sheet button')]
+        .find(b => /Выбрать файл|Другой файл/.test(b.textContent))?.click();
+    }),
+  ]);
+  await pc.accept([pdfPath]);
+  await wait(1200);
+  const msg = await page.evaluate(() => document.querySelector('.toast')?.textContent || '');
+  console.log('  сообщение:', msg);
+  if (!/PDF/.test(msg)) problems.push(`для PDF показано: «${msg}»`);
+}
+
 await browser.close();
 
 console.log('');

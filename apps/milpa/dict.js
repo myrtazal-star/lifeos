@@ -544,3 +544,36 @@ const ai = {
 };
 
 for (const lang of Object.keys(dict)) Object.assign(dict[lang], ai[lang]);
+
+/* Архивы и неподдерживаемые форматы выписок. */
+const archives = {
+  ru: {
+    imp_which_file: 'Какой файл из архива',
+    imp_which_hint: 'В архиве несколько таблиц — выберите ту, где движения по счёту.',
+    imp_zip_empty: 'В архиве нет таблицы CSV или TXT. Внутри: {files}',
+    imp_zip_bad: 'Архив не читается — возможно, он повреждён или защищён паролем',
+    imp_zip_old: 'Браузер слишком старый, чтобы открыть архив. Распакуйте его на телефоне и загрузите файл из него.',
+    imp_pdf: 'Это PDF — из него выписку пока не прочитать. В интернет-банке BBVA для бизнес-счёта выберите формат CSV или TXT.',
+    imp_excel: 'Это файл Excel. Откройте его и сохраните как CSV — тогда загрузится.',
+  },
+  es: {
+    imp_which_file: 'Qué archivo del ZIP',
+    imp_which_hint: 'El archivo trae varias tablas: elige la de los movimientos.',
+    imp_zip_empty: 'El ZIP no trae un CSV ni un TXT. Contiene: {files}',
+    imp_zip_bad: 'No se pudo abrir el archivo: puede estar dañado o con contraseña',
+    imp_zip_old: 'El navegador es muy antiguo para abrir el ZIP. Descomprímelo y sube el archivo de dentro.',
+    imp_pdf: 'Es un PDF y todavía no se puede leer. En la banca en línea elige formato CSV o TXT.',
+    imp_excel: 'Es un archivo de Excel. Ábrelo y guárdalo como CSV.',
+  },
+  en: {
+    imp_which_file: 'Which file from the archive',
+    imp_which_hint: 'The archive holds several tables — pick the one with the transactions.',
+    imp_zip_empty: 'No CSV or TXT inside the archive. It contains: {files}',
+    imp_zip_bad: 'The archive could not be opened — it may be damaged or password-protected',
+    imp_zip_old: 'This browser is too old to open archives. Unpack it and upload the file inside.',
+    imp_pdf: 'This is a PDF and cannot be read yet. In online banking choose CSV or TXT instead.',
+    imp_excel: 'This is an Excel file. Open it and save as CSV.',
+  },
+};
+
+for (const lang of Object.keys(dict)) Object.assign(dict[lang], archives[lang]);

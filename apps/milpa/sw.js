@@ -14,6 +14,7 @@ const SHELL = [
   './views.js',
   './news.js',
   './csv.js',
+  './zip.js',
   './ai.js',
   './import-view.js',
   './data/news.json',
