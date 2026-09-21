@@ -12,7 +12,8 @@
     "test": "node tools/test-nomina.mjs && node tools/test-csv.mjs",
     "check:migration": "node tools/check-migration.mjs",
     "check:import": "node tools/check-import.mjs",
-    "news": "node tools/fetch-news.mjs"
+    "news": "node tools/fetch-news.mjs",
+    "check:ai": "node tools/check-ai.mjs"
   },
   "devDependencies": {
     "puppeteer-core": "^23.11.1"
