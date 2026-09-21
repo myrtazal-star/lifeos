@@ -406,6 +406,41 @@ ul { margin: 0; padding: 0; list-style: none; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* ─────────── Большой экран ───────────
+   На компьютере телефонная колонка обрамляется, чтобы читалась как
+   отдельное окно приложения, а не как растянутая страница. */
+
+@media (min-width: 760px) {
+  body { background: var(--bg-2); }
+
+  .app {
+    border-left: 1px solid var(--line-soft);
+    border-right: 1px solid var(--line-soft);
+    box-shadow: 0 0 60px rgba(0,0,0,.28);
+  }
+
+  /* полоса вкладок больше не тянется через весь экран */
+  .tabbar {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-top: 0;
+  }
+  .tabbar__inner {
+    background: color-mix(in srgb, var(--bg) 94%, transparent);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border-top: 1px solid var(--line-soft);
+    border-left: 1px solid var(--line-soft);
+    border-right: 1px solid var(--line-soft);
+  }
+
+  /* на мыши курсор должен подсказывать, что строки нажимаются */
+  .row:hover .row__title { color: var(--text); }
+  button.row:hover, .tile:hover { background: var(--surface-2); }
+  .btn:hover { filter: brightness(1.08); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
