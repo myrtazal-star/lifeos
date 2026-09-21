@@ -13,7 +13,8 @@
     "check:migration": "node tools/check-migration.mjs",
     "check:import": "node tools/check-import.mjs",
     "news": "node tools/fetch-news.mjs",
-    "check:ai": "node tools/check-ai.mjs"
+    "check:ai": "node tools/check-ai.mjs",
+    "check:pdf": "node tools/check-pdf.mjs"
   },
   "devDependencies": {
     "puppeteer-core": "^23.11.1"

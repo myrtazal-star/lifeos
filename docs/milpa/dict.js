@@ -388,8 +388,8 @@ for (const lang of Object.keys(dict)) Object.assign(dict[lang], news[lang]);
 const imports = {
   ru: {
     imp_title: 'Загрузить выписку', imp_menu: 'Загрузить выписку',
-    imp_intro: 'Выгрузите движения из интернет-банка в файл CSV или TXT и загрузите сюда. Прежде чем что-то записать, приложение покажет, что именно оно разобрало.',
-    imp_where: 'BBVA: бизнес-счета выгружают CSV и TXT в разделе движений. Личные счета отдают только PDF — их пока придётся вводить вручную.',
+    imp_intro: 'Выгрузите движения из интернет-банка и загрузите сюда — подойдут CSV, TXT, архив ZIP и PDF. Прежде чем что-то записать, приложение покажет, что именно оно разобрало.',
+    imp_where: 'BBVA: бизнес-счета выгружают CSV и TXT, личные — PDF. PDF читается распознаванием, поэтому для него нужен ключ доступа и он стоит несколько песо за выписку.',
     imp_choose: 'Выбрать файл', imp_other_file: 'Другой файл',
     imp_rows: 'строк с данными: {n}',
     imp_account: 'На какой счёт',
@@ -412,8 +412,8 @@ const imports = {
   },
   es: {
     imp_title: 'Importar estado de cuenta', imp_menu: 'Importar estado de cuenta',
-    imp_intro: 'Descarga tus movimientos de la banca en línea en CSV o TXT y súbelos aquí. Antes de guardar nada, verás exactamente qué se reconoció.',
-    imp_where: 'BBVA: las cuentas empresariales exportan CSV y TXT. Las personales solo dan PDF.',
+    imp_intro: 'Descarga tus movimientos de la banca en línea y súbelos aquí: CSV, TXT, ZIP o PDF. Antes de guardar nada verás qué se reconoció.',
+    imp_where: 'BBVA: las cuentas empresariales exportan CSV y TXT; las personales, PDF. El PDF se lee con reconocimiento y requiere clave.',
     imp_choose: 'Elegir archivo', imp_other_file: 'Otro archivo',
     imp_rows: 'filas con datos: {n}',
     imp_account: 'A qué cuenta',
@@ -436,8 +436,8 @@ const imports = {
   },
   en: {
     imp_title: 'Import statement', imp_menu: 'Import statement',
-    imp_intro: 'Export your transactions from online banking as CSV or TXT and upload them here. Before anything is saved, you see exactly what was recognised.',
-    imp_where: 'BBVA: business accounts export CSV and TXT. Personal accounts only give PDF.',
+    imp_intro: 'Export your transactions from online banking and upload them here — CSV, TXT, ZIP or PDF. Before anything is saved you see what was recognised.',
+    imp_where: 'BBVA: business accounts export CSV and TXT, personal ones PDF. PDFs are read by recognition and need an API key.',
     imp_choose: 'Choose file', imp_other_file: 'Another file',
     imp_rows: 'data rows: {n}',
     imp_account: 'Into which account',
@@ -577,3 +577,45 @@ const archives = {
 };
 
 for (const lang of Object.keys(dict)) Object.assign(dict[lang], archives[lang]);
+
+/* Чтение выписки в PDF. */
+const pdfImport = {
+  ru: {
+    imp_pdf_no_key: 'Чтобы читать PDF, укажите ключ в «Ещё» → «Распознавание чеков»',
+    imp_pdf_big: 'Файл слишком большой. Выгрузите выписку за меньший период.',
+    imp_pdf_reading: 'Читаю выписку',
+    imp_pdf_wait: 'Многостраничная выписка может занять минуту. Не закрывайте экран.',
+    imp_pdf_nothing: 'В этом PDF не нашлось операций — похоже, это не выписка по счёту',
+    imp_pdf_check: 'Проверьте список: снимите отметку с того, что записывать не нужно. Строки, помеченные как неуверенные, стоит сверить с выпиской.',
+    imp_found: 'Найдено', imp_chosen: 'Отмечено',
+    imp_already: 'уже есть', imp_unsure: 'читалось плохо',
+    imp_all: 'Отметить все', imp_none: 'Снять все',
+    ai_too_long: 'Выписка слишком длинная — выгрузите за меньший период',
+  },
+  es: {
+    imp_pdf_no_key: 'Para leer PDF pon tu clave en «Más» → «Lectura de tickets»',
+    imp_pdf_big: 'El archivo es muy grande. Descarga un periodo más corto.',
+    imp_pdf_reading: 'Leyendo el estado de cuenta',
+    imp_pdf_wait: 'Un estado de varias páginas puede tardar un minuto.',
+    imp_pdf_nothing: 'No se encontraron movimientos: no parece un estado de cuenta',
+    imp_pdf_check: 'Revisa la lista y desmarca lo que no quieras guardar.',
+    imp_found: 'Encontrados', imp_chosen: 'Marcados',
+    imp_already: 'ya existe', imp_unsure: 'poco legible',
+    imp_all: 'Marcar todo', imp_none: 'Desmarcar todo',
+    ai_too_long: 'El estado de cuenta es muy largo: usa un periodo más corto',
+  },
+  en: {
+    imp_pdf_no_key: 'To read PDFs add your key in «More» → «Receipt reading»',
+    imp_pdf_big: 'The file is too large. Export a shorter period.',
+    imp_pdf_reading: 'Reading the statement',
+    imp_pdf_wait: 'A multi-page statement can take a minute.',
+    imp_pdf_nothing: 'No transactions found — this does not look like a bank statement',
+    imp_pdf_check: 'Check the list and untick anything you do not want saved.',
+    imp_found: 'Found', imp_chosen: 'Ticked',
+    imp_already: 'already there', imp_unsure: 'hard to read',
+    imp_all: 'Tick all', imp_none: 'Untick all',
+    ai_too_long: 'The statement is too long — export a shorter period',
+  },
+};
+
+for (const lang of Object.keys(dict)) Object.assign(dict[lang], pdfImport[lang]);

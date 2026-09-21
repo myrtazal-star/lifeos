@@ -224,6 +224,141 @@ export async function testKey(key) {
 export { AiError };
 
 
+/* ─────────── Выписка в PDF ─────────── */
+
+/* Ограничения Claude: 32 МБ на запрос и 600 страниц. Выписка за месяц
+   в них укладывается с огромным запасом, но проверить дешевле, чем
+   получить отказ после минуты ожидания. */
+export const PDF_MAX_BYTES = 28 * 1024 * 1024;
+
+const STATEMENT_SCHEMA = {
+  type: 'object',
+  properties: {
+    readable: { type: 'boolean' },
+    problem: { type: 'string' },
+    currency: { type: 'string', enum: ['MXN', 'USD', 'unknown'] },
+    account: { type: 'string' },
+    period: { type: 'string' },
+    transactions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          date: { type: 'string' },
+          kind: { type: 'string', enum: ['expense', 'income'] },
+          amount: { type: 'number' },
+          merchant: { type: 'string' },
+          note: { type: 'string' },
+          category: { type: 'string' },
+          confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+        },
+        required: ['date', 'kind', 'amount', 'merchant', 'note', 'category', 'confidence'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['readable', 'problem', 'currency', 'account', 'period', 'transactions'],
+  additionalProperties: false,
+};
+
+function statementPrompt({ categories, bookName }) {
+  return `This PDF is a bank statement (estado de cuenta) from a Mexican bank, belonging to the owner of a small business in Mexico City. Extract EVERY transaction line, in the order they appear.
+
+Rules:
+
+- Extract only real movements of money. Skip: opening and closing balances, subtotals, page totals, interest-rate tables, advertising, legal notices, and any summary block that repeats amounts already listed as individual lines.
+- date: YYYY-MM-DD. Mexican statements are day/month/year, and the year often appears only in the period header — use it. Statements sometimes show two dates per line (operation and settlement); use the operation date.
+- amount: the amount of that single line, as a positive number in major units (1450.50). Never a running balance.
+- kind: "expense" when money left the account (CARGO, RETIRO, COMPRA, PAGO, TRASPASO ENVIADO). "income" when money arrived (ABONO, DEPOSITO, TRASPASO RECIBIDO, SPEI RECIBIDO).
+- merchant: the counterparty as printed, trimmed of reference numbers when they are clearly separate. Keep it short.
+- note: a short description in Russian, up to 60 characters.
+- category: the single best match from this list, copied exactly: ${categories.join(' | ')}. Return "" if nothing fits.
+- confidence: "low" for any line where the amount or date was hard to read; "high" only when both are unmistakable.
+- currency: MXN unless the statement is clearly in US dollars. "$" on a Mexican statement means pesos.
+- account: the account number as printed, or "".
+- period: the statement period as printed, or "".
+- readable: false only if this is not a bank statement or no lines could be read. Then explain in "problem" in Russian and return an empty list.
+
+These become accounting entries for the wallet "${bookName}". A missed line is better than an invented one: never output a transaction you cannot actually see.`;
+}
+
+/** Прочитать выписку целиком. Возвращает список операций для проверки человеком. */
+export async function readStatement({ base64, categories, bookName, signal }) {
+  const key = getKey();
+  if (!key) throw new AiError('no-key');
+
+  const body = {
+    model: MODEL,
+    // выписка может быть длинной: места должно хватить на все строки
+    max_tokens: 16000,
+    output_config: {
+      effort: 'medium',
+      format: { type: 'json_schema', schema: STATEMENT_SCHEMA },
+    },
+    messages: [{
+      role: 'user',
+      content: [
+        // документ раньше текста — так модель читает точнее
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+        { type: 'text', text: statementPrompt({ categories, bookName }) },
+      ],
+    }],
+  };
+
+  const res = await post(body, key, signal);
+  const json = await res.json();
+
+  if (json.stop_reason === 'refusal') {
+    throw new AiError('refused', json.stop_details?.explanation || '');
+  }
+  if (json.stop_reason === 'max_tokens') {
+    throw new AiError('too-long');
+  }
+
+  const text = (json.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+  let parsed;
+  try { parsed = JSON.parse(text); }
+  catch { throw new AiError('bad-answer', text.slice(0, 200)); }
+
+  return {
+    readable: parsed.readable === true,
+    problem: String(parsed.problem || '').trim(),
+    currency: parsed.currency === 'USD' ? 'USD' : (parsed.currency === 'MXN' ? 'MXN' : null),
+    account: String(parsed.account || '').trim(),
+    period: String(parsed.period || '').trim(),
+    transactions: (parsed.transactions || [])
+      .map(normaliseLine)
+      .filter(Boolean),
+  };
+}
+
+function normaliseLine(raw) {
+  const amountCents = Math.round(Math.abs(Number(raw.amount) || 0) * 100);
+  if (!amountCents) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw.date || '')) return null;
+
+  return {
+    date: raw.date,
+    kind: raw.kind === 'income' ? 'income' : 'expense',
+    amount: amountCents,
+    merchant: String(raw.merchant || '').trim().slice(0, 80),
+    note: String(raw.note || '').trim().slice(0, 80),
+    category: String(raw.category || '').trim(),
+    confidence: ['high', 'medium', 'low'].includes(raw.confidence) ? raw.confidence : 'low',
+  };
+}
+
+/** Файл PDF → base64 без заголовка. */
+export function pdfToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const CHUNK = 0x8000;   // по частям: длинный apply переполняет стек
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
 /** Код ошибки → понятный текст. */
 export function aiMessage(t, e) {
   const map = {
@@ -235,6 +370,7 @@ export function aiMessage(t, e) {
     'refused': 'ai_refused',
     'bad-answer': 'ai_bad_answer',
     'bad-request': 'ai_bad_request',
+    'too-long': 'ai_too_long',
     'cancelled': 'cancel',
   };
   const key = map[e?.code];

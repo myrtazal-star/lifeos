@@ -2,21 +2,26 @@
    Формат у каждого банка свой, поэтому ничего не угадывается молча:
    предположение показывается, пользователь его подтверждает или правит. */
 
-import { el, sheet, toast, haptic, field, select, segmented, pickFile }
+import { el, sheet, toast, haptic, field, select, segmented, pickFile, icons }
   from './shared/js/ui.js';
 import { formatMoney, relativeDay } from './shared/js/format.js';
 import { decodeBytes, parseTable, findHeaderRow, guessMapping,
          buildTransactions, fingerprint } from './csv.js';
 import { looksLikeZip, listZip, pickStatement, supported as zipSupported } from './zip.js';
+import { hasKey, readStatement, pdfToBase64, aiMessage, PDF_MAX_BYTES } from './ai.js';
 import * as D from './data.js';
 
 const st = {
+  mode: 'table',     // table — разбор таблицы, pdf — список из выписки
   fileName: null,
   rows: [],
   headerRow: 0,
   mapping: null,
   dayFirst: true,
   accountId: null,
+  busy: false,
+  aiRows: [],        // [{ tx, include, duplicate }]
+  aiInfo: null,
 };
 
 export function importSheet({ t, lang, book, onDone }) {
@@ -35,6 +40,12 @@ export function importSheet({ t, lang, book, onDone }) {
     const file = await pickFile();
     if (!file) return;
 
+    const bytes = new Uint8Array(file.buffer);
+    if (isPdf(bytes) || /\.pdf$/i.test(file.name || '')) {
+      await readPdf(file);
+      return;
+    }
+
     const unpacked = await unwrap(file);
     if (!unpacked) return;
 
@@ -42,6 +53,7 @@ export function importSheet({ t, lang, book, onDone }) {
     const { rows } = parseTable(text);
     if (!rows.length) { toast(t('imp_empty'), { error: true }); return; }
 
+    st.mode = 'table';
     st.fileName = unpacked.name;
     st.rows = rows;
     st.headerRow = findHeaderRow(rows);
@@ -62,10 +74,6 @@ export function importSheet({ t, lang, book, onDone }) {
     const bytes = new Uint8Array(file.buffer);
     const name = file.name || '';
 
-    if (isPdf(bytes) || /\.pdf$/i.test(name)) {
-      toast(t('imp_pdf'), { error: true, ms: 8000});
-      return null;
-    }
 
     if (!looksLikeZip(bytes)) {
       if (/\.xls$/i.test(name)) { toast(t('imp_excel'), { error: true, ms: 8000 }); return null; }
@@ -128,6 +136,180 @@ export function importSheet({ t, lang, book, onDone }) {
     });
   }
 
+  /* ─────── Выписка в PDF ─────── */
+
+  async function readPdf(file) {
+    if (!hasKey()) { toast(t('imp_pdf_no_key'), { error: true, ms: 7000 }); return; }
+    if (file.buffer.byteLength > PDF_MAX_BYTES) {
+      toast(t('imp_pdf_big'), { error: true, ms: 7000 });
+      return;
+    }
+
+    st.mode = 'pdf';
+    st.fileName = file.name;
+    st.busy = true;
+    st.aiRows = [];
+    st.aiInfo = null;
+    render();
+
+    try {
+      const result = await readStatement({
+        base64: pdfToBase64(file.buffer),
+        categories: D.categoriesOf(book).map(c => c.name),
+        bookName: D.bookName(book, t),
+      });
+
+      if (!result.readable || !result.transactions.length) {
+        st.mode = 'table';
+        toast(result.problem || t('imp_pdf_nothing'), { error: true, ms: 8000 });
+        return;
+      }
+
+      const existing = existingFingerprints();
+      const seen = new Set();
+      st.aiRows = result.transactions.map(tx => {
+        const fp = fingerprint(tx);
+        const duplicate = existing.has(fp) || seen.has(fp);
+        seen.add(fp);
+        // повторы по умолчанию не записываем, остальное — записываем
+        return { tx, include: !duplicate, duplicate };
+      });
+      st.aiInfo = result;
+
+      // валюту задаёт счёт: подберём подходящий, если он есть
+      if (result.currency) {
+        const current = D.accountById(st.accountId)?.currency;
+        if (current !== result.currency) {
+          const match = accounts.find(a => a.currency === result.currency);
+          if (match) st.accountId = match.id;
+        }
+      }
+    } catch (e) {
+      st.mode = 'table';
+      toast(aiMessage(t, e), { error: true, ms: 8000 });
+    } finally {
+      st.busy = false;
+      render();
+    }
+  }
+
+  function existingFingerprints() {
+    return new Set(
+      D.S().tx
+        .filter(x => x.account === st.accountId && !x.deleted)
+        .map(x => fingerprint({ date: x.date, kind: x.kind, amount: x.amount, note: x.note }))
+    );
+  }
+
+  function renderPdf() {
+    if (st.busy) {
+      body.replaceChildren(
+        el('div.empty', {}, [
+          el('div.empty__icon', { text: '📄' }),
+          el('div.empty__title', { text: t('imp_pdf_reading') }),
+          el('div.empty__text', { text: t('imp_pdf_wait') }),
+        ]),
+      );
+      return;
+    }
+
+    const chosen = st.aiRows.filter(r => r.include);
+    const account = D.accountById(st.accountId);
+    const dupes = st.aiRows.filter(r => r.duplicate).length;
+
+    const header = el('div.card.card--flat', {}, [
+      el('div.hstack', {}, [
+        el('div.small', { style: { fontWeight: '600' }, text: st.fileName }),
+        el('div.spacer'),
+        el('button.btn.btn--sm.btn--ghost', { text: t('imp_other_file'), onclick: choose }),
+      ]),
+      st.aiInfo?.period && el('div.tiny.muted-3', { style: { marginTop: '4px' },
+        text: st.aiInfo.period + (st.aiInfo.account ? ' · ' + st.aiInfo.account : '') }),
+    ]);
+
+    const rows = st.aiRows.map((row, i) => {
+      const { tx, include, duplicate } = row;
+      return el('button.row', {
+        style: { opacity: include ? '1' : '.45' },
+        onclick: () => { row.include = !row.include; render(); },
+      }, [
+        el('div', {
+          style: {
+            width: '26px', height: '26px', flex: '0 0 auto', borderRadius: '8px',
+            display: 'grid', placeItems: 'center',
+            background: include ? 'var(--accent)' : 'transparent',
+            border: include ? 'none' : '2px solid var(--line)',
+            color: include ? 'var(--accent-ink)' : 'transparent',
+          },
+          html: icons.check,
+        }),
+        el('div.row__main', {}, [
+          el('div.row__title', { text: tx.note || tx.merchant || '—' }),
+          el('div.row__sub', {
+            text: [relativeDay(tx.date, lang, t), duplicate ? t('imp_already') : null]
+              .filter(Boolean).join(' · '),
+          }),
+        ]),
+        // пометку о плохом чтении держим у суммы: в подписи её обрезает
+        tx.confidence === 'low' && el('span', {
+          title: t('imp_unsure'),
+          style: { color: 'var(--warn)', flex: '0 0 auto', fontSize: '14px' },
+          text: '⚠',
+        }),
+        el('div.amount.num', {
+          class: tx.kind === 'income' ? 'pos' : '',
+          style: { fontSize: '15px' },
+          text: (tx.kind === 'income' ? '+' : '−') +
+                formatMoney(tx.amount, account.currency, { decimals: 2 }).replace('−', ''),
+        }),
+      ]);
+    });
+
+    body.replaceChildren(
+      header,
+
+      field(t('imp_account'), select(
+        accounts.map(a => ({ value: a.id, label: `${a.name} · ${a.currency}` })),
+        { value: st.accountId, onchange: e => {
+            st.accountId = e.target.value;
+            // при смене счёта повторы считаются заново
+            const existing = existingFingerprints();
+            for (const r of st.aiRows) {
+              r.duplicate = existing.has(fingerprint(r.tx));
+              r.include = !r.duplicate;
+            }
+            render();
+          } })),
+
+      el('div.grid.grid--3', {}, [
+        tile(t('imp_found'), String(st.aiRows.length)),
+        tile(t('imp_chosen'), String(chosen.length), 'pos'),
+        tile(t('imp_dupes'), String(dupes)),
+      ]),
+
+      el('div.hstack', { style: { gap: '8px' } }, [
+        el('button.btn.btn--sm.btn--ghost', {
+          text: t('imp_all'),
+          onclick: () => { st.aiRows.forEach(r => { r.include = true; }); render(); },
+        }),
+        el('button.btn.btn--sm.btn--ghost', {
+          text: t('imp_none'),
+          onclick: () => { st.aiRows.forEach(r => { r.include = false; }); render(); },
+        }),
+      ]),
+
+      el('p.tiny.muted-3', { text: t('imp_pdf_check') }),
+
+      el('div.card', {}, [el('div.list', {}, rows)]),
+
+      el('button.btn.btn--primary.btn--block', {
+        text: chosen.length ? t('imp_do', { n: chosen.length }) : t('imp_nothing_to_add'),
+        disabled: !chosen.length,
+        onclick: () => runImport(chosen.map(r => r.tx)),
+      }),
+    );
+  }
+
   function headers() {
     if (!st.rows.length) return [];
     return st.headerRow >= 0
@@ -167,6 +349,8 @@ export function importSheet({ t, lang, book, onDone }) {
   }
 
   function render() {
+    if (st.mode === 'pdf') { renderPdf(); return; }
+
     if (!st.rows.length) {
       body.replaceChildren(
         el('p.muted.small', { text: t('imp_intro') }),
@@ -302,14 +486,17 @@ export function importSheet({ t, lang, book, onDone }) {
     });
 
     haptic(20);
-    st.rows = []; st.fileName = null;
+    st.rows = []; st.fileName = null; st.mode = 'table'; st.aiRows = [];
     s.close();
     toast(t('imp_done', { n: fresh.length }));
     onDone?.();
   }
 
   render();
-  s = sheet({ title: t('imp_title'), body: [body], onClose: () => { st.rows = []; st.fileName = null; } });
+  s = sheet({
+    title: t('imp_title'), body: [body],
+    onClose: () => { st.rows = []; st.fileName = null; st.mode = 'table'; st.aiRows = []; },
+  });
 }
 
 function tile(label, value, cls = '') {
