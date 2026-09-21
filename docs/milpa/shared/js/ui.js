@@ -171,7 +171,9 @@ export function pickFile(accept = 'application/json') {
       const file = input.files?.[0];
       input.remove();
       if (!file) return resolve(null);
-      resolve({ name: file.name, text: await file.text() });
+      // байты нужны там, где кодировка файла не UTF-8 (банковские выписки)
+      const buffer = await file.arrayBuffer();
+      resolve({ name: file.name, buffer, text: new TextDecoder('utf-8').decode(buffer) });
     });
     document.body.append(input);
     input.click();

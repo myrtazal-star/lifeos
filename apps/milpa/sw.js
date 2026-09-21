@@ -13,6 +13,8 @@ const SHELL = [
   './forms.js',
   './views.js',
   './news.js',
+  './csv.js',
+  './import-view.js',
   './data/news.json',
   './tax-mx.js',
   './nomina.js',

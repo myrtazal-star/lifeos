@@ -9,6 +9,7 @@ import { canPromptInstall, promptInstall, isIOS, isStandalone } from './shared/j
 import * as D from './data.js';
 import { txForm, accountForm, categoryForm, recurringForm } from './forms.js';
 import { nominaSheet } from './nomina-view.js';
+import { importSheet } from './import-view.js';
 
 /* Состояние экранов (не сохраняется — это положение «прокрутки», а не данные) */
 export const ui = {
@@ -456,6 +457,7 @@ export function settingsView(t, lang, rerender, i18n) {
     el('div.list', {}, [
       navRow('👛', t('books_title'), () => booksSheet(t, rerender)),
       navRow('🏦', t('accounts'), () => accountsSheet(t, book, rerender)),
+      navRow('📥', t('imp_menu'), () => importSheet({ t, lang, book, onDone: rerender })),
       navRow('🏷️', t('categories'), () => categoriesSheet(t, book, rerender)),
       navRow('🔁', t('recurring'), () => recurringSheet(t, lang, book, rerender)),
       book === 'empresa' && navRow('🧾', t('nom_menu'), () => nominaSheet({ t, lang, onDone: rerender })),
