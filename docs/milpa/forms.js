@@ -1,9 +1,10 @@
 /* Формы Milpa: операция, счёт, категория, регулярный платёж. */
 
-import { el, sheet, confirmSheet, toast, haptic, field, input, textarea, select, segmented, icons }
+import { el, sheet, confirmSheet, toast, haptic, field, input, textarea, select, segmented, icons, pickFile }
   from './shared/js/ui.js';
 import { parseMoney, formatMoney, toISODate, CURRENCIES } from './shared/js/format.js';
 import * as D from './data.js';
+import { hasKey, prepareImage, readReceipt, aiMessage } from './ai.js';
 
 const KINDS = ['expense', 'income', 'transfer'];
 
@@ -60,6 +61,8 @@ export function txForm({ t, lang, book, tx = null, onDone }) {
     }));
 
     const parts = [
+      !editing && scanButton(),
+
       segmented(KINDS.map(k => ({ value: k, label: t('tx_' + k) })), draft.kind,
         v => { draft.kind = v; if (v !== 'transfer') draft.category = defaultCategory(v); render(); },
         { accent: true }),
@@ -123,6 +126,82 @@ export function txForm({ t, lang, book, tx = null, onDone }) {
     body.replaceChildren(...parts);
   }
 
+  /* ─────── Заполнение по снимку чека ─────── */
+
+  let scanning = false;
+
+  function scanButton() {
+    if (scanning) {
+      return el('div.card.card--flat.hstack', { style: { justifyContent: 'center', gap: '10px' } }, [
+        el('span', { text: '⏳' }),
+        el('span.small.muted', { text: t('ai_reading') }),
+      ]);
+    }
+    return el('button.btn.btn--block', {
+      style: { background: 'var(--accent-bg)', color: 'var(--accent)', borderColor: 'transparent' },
+      text: '📷 ' + t('ai_scan'),
+      onclick: scan,
+    });
+  }
+
+  async function scan() {
+    if (!hasKey()) { toast(t('ai_no_key'), { error: true, ms: 5000 }); return; }
+
+    const file = await pickFile('image/*');
+    if (!file) return;
+
+    scanning = true; render();
+    try {
+      const image = await prepareImage(new Blob([file.buffer], { type: file.type || 'image/jpeg' }));
+      const result = await readReceipt({
+        base64: image.base64,
+        mediaType: image.mediaType,
+        categories: D.categoriesOf(book).map(c => c.name),
+        today: toISODate(),
+        bookName: D.bookName(book, t),
+      });
+      applyScan(result);
+    } catch (e) {
+      toast(aiMessage(t, e), { error: true, ms: 6000 });
+    } finally {
+      scanning = false; render();
+    }
+  }
+
+  /** Результат распознавания только ЗАПОЛНЯЕТ форму — записывает человек. */
+  function applyScan(r) {
+    if (!r.readable) {
+      toast(r.problem || t('ai_unreadable'), { error: true, ms: 6000 });
+      return;
+    }
+
+    if (r.kindKnown) draft.kind = r.kind;
+    draft.amount = String(r.amountCents / 100);
+    if (r.date) draft.date = r.date;
+    if (r.note) draft.note = r.note;
+    if (r.merchant) draft.party = r.merchant;
+
+    // валюту задаёт счёт: если она другая — пробуем подобрать подходящий счёт
+    if (r.currency) {
+      const current = D.accountById(draft.account)?.currency;
+      if (current !== r.currency) {
+        const match = accounts.find(a => a.currency === r.currency);
+        if (match) draft.account = match.id;
+        else toast(t('ai_currency_mismatch', { c: r.currency }), { error: true, ms: 5000 });
+      }
+    }
+
+    if (r.category) {
+      const found = D.categoriesOf(book, draft.kind)
+        .find(c => c.name.toLowerCase() === r.category.toLowerCase());
+      if (found) draft.category = found.id;
+    }
+
+    haptic(15);
+    toast(r.confidence === 'high' ? t('ai_filled') : t('ai_filled_check'),
+          { ms: r.confidence === 'high' ? 2500 : 5000 });
+  }
+
   function defaultCategory(kind) {
     const list = D.categoriesOf(book, kind);
     return list[0]?.id ?? null;
@@ -182,6 +261,15 @@ function categoryPicker(t, book, draft, rerender) {
       onclick: () => { draft.category = c.id; haptic(); rerender(); },
     }, [el('span', { text: c.icon }), el('span', { text: c.name })]));
   }
+  // после автозаполнения выбранная категория может оказаться далеко справа —
+  // подкручиваем список к ней, иначе кажется, что ничего не выбрано
+  queueMicrotask(() => {
+    const active = grid.querySelector('[aria-pressed="true"]');
+    if (active && grid.scrollWidth > grid.clientWidth) {
+      grid.scrollLeft = active.offsetLeft - grid.clientWidth / 2 + active.offsetWidth / 2;
+    }
+  });
+
   return el('div.field', {}, [el('span.label', { text: t('category') }), grid]);
 }
 

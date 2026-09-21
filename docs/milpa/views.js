@@ -10,6 +10,7 @@ import * as D from './data.js';
 import { txForm, accountForm, categoryForm, recurringForm } from './forms.js';
 import { nominaSheet } from './nomina-view.js';
 import { importSheet } from './import-view.js';
+import { getKey, setKey, hasKey, testKey, aiMessage } from './ai.js';
 
 /* Состояние экранов (не сохраняется — это положение «прокрутки», а не данные) */
 export const ui = {
@@ -464,6 +465,9 @@ export function settingsView(t, lang, rerender, i18n) {
     ]),
   ]));
 
+  /* ИИ-помощник */
+  nodes.push(aiCard(t, rerender));
+
   /* Деньги */
   nodes.push(el('div.card', {}, [
     el('div.card__head', {}, [el('div.card__title', { text: t('fx') })]),
@@ -561,6 +565,57 @@ export function settingsView(t, lang, rerender, i18n) {
 }
 
 /* В списке могут быть false (пункты только для одной книги) — их отсеивает mount */
+/** Настройка распознавания чеков. Ключ хранится отдельно от остальных
+    данных и намеренно не попадает в резервные копии. */
+function aiCard(t, rerender) {
+  const keyInput = input({
+    type: 'password',
+    value: getKey(),
+    placeholder: 'sk-ant-...',
+    autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false',
+    oninput: e => setKey(e.target.value),
+  });
+
+  const status = el('div.tiny.muted-3', { style: { marginTop: '8px' } });
+
+  return el('div.card', { style: hasKey() ? {} : { borderColor: 'var(--line)' } }, [
+    el('div.card__head', {}, [el('div.card__title', { text: t('ai_title') })]),
+    el('p.small.muted', { style: { marginBottom: '12px' }, text: t('ai_what') }),
+
+    field(t('ai_key'), keyInput),
+
+    el('div.hstack', { style: { gap: '8px', marginTop: '10px' } }, [
+      el('button.btn.btn--sm.btn--ghost', {
+        text: t('ai_test'),
+        onclick: async (e) => {
+          const btn = e.target;
+          btn.disabled = true;
+          status.textContent = t('ai_testing');
+          const res = await testKey(keyInput.value);
+          btn.disabled = false;
+          if (res.ok) {
+            status.textContent = '✅ ' + t('ai_key_ok');
+            status.style.color = 'var(--pos)';
+            toast(t('saved'));
+          } else {
+            status.textContent = '⚠️ ' + aiMessage(t, { code: res.code, message: res.detail });
+            status.style.color = 'var(--neg)';
+          }
+        },
+      }),
+      hasKey() && el('button.btn.btn--sm.btn--ghost', {
+        text: t('ai_forget'),
+        onclick: () => { setKey(''); toast(t('deleted')); rerender(); },
+      }),
+    ]),
+    status,
+
+    el('p.tiny.muted-3', { style: { marginTop: '14px', lineHeight: '1.5' }, text: t('ai_cost') }),
+    el('p.tiny.muted-3', { style: { marginTop: '6px', lineHeight: '1.5' }, text: t('ai_privacy') }),
+    el('p.tiny.muted-3', { style: { marginTop: '6px', lineHeight: '1.5' }, text: t('ai_where_key') }),
+  ]);
+}
+
 function navRow(emoji, title, onclick) {
   return el('button.row', { onclick }, [
     el('div.avatar', { text: emoji }),

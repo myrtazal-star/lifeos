@@ -14,6 +14,10 @@ export function el(spec, props = {}, children = []) {
     else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v);
     else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
     else if (k === 'dataset') Object.assign(node.dataset, v);
+    // у textarea значение задаётся содержимым, а не атрибутом: через
+    // setAttribute оно молча не появляется. Для полей ввода пишем свойство.
+    else if (k === 'value' && 'value' in node) node.value = v;
+    else if (k === 'checked' && 'checked' in node) node.checked = !!v;
     else node.setAttribute(k, v === true ? '' : v);
   }
 
@@ -173,7 +177,8 @@ export function pickFile(accept = 'application/json') {
       if (!file) return resolve(null);
       // байты нужны там, где кодировка файла не UTF-8 (банковские выписки)
       const buffer = await file.arrayBuffer();
-      resolve({ name: file.name, buffer, text: new TextDecoder('utf-8').decode(buffer) });
+      resolve({ name: file.name, type: file.type, buffer,
+                text: new TextDecoder('utf-8').decode(buffer) });
     });
     document.body.append(input);
     input.click();
