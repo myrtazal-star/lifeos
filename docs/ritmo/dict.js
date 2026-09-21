@@ -29,6 +29,7 @@ export const dict = {
 
     no_habits: 'Привычек пока нет',
     no_habits_sub: 'Начните с двух-трёх — их проще удержать, чем десять сразу.',
+    habits_hint: 'Нажмите на привычку, чтобы изменить или удалить её.',
     add_starter: 'Добавить готовый набор',
     starter_added: 'Набор привычек добавлен',
 
@@ -86,6 +87,7 @@ export const dict = {
     archived: 'Archivado', archived_n: 'Archivados: {n}',
     no_habits: 'Aún no hay hábitos',
     no_habits_sub: 'Empieza con dos o tres: es más fácil sostenerlos que diez.',
+    habits_hint: 'Toca un hábito para editarlo o eliminarlo.',
     add_starter: 'Añadir set inicial',
     starter_added: 'Set de hábitos añadido',
     note_today: 'Nota del día', note_ph: 'Cómo fue el día, qué estorbó, qué salió bien',
@@ -138,6 +140,7 @@ export const dict = {
     archived: 'Archived', archived_n: 'Archived: {n}',
     no_habits: 'No habits yet',
     no_habits_sub: 'Start with two or three — easier to keep than ten.',
+    habits_hint: 'Tap a habit to edit or delete it.',
     add_starter: 'Add starter set',
     starter_added: 'Starter habits added',
     note_today: 'Note of the day', note_ph: 'How the day went, what got in the way',

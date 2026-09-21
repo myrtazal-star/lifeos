@@ -17,7 +17,7 @@ const STARTER = [
   ['🚶', '10 000 шагов',           'body',   'count', 'шагов',     10000, 'daily', null,    'any'],
   ['🧘', 'Растяжка 10 минут',      'body',   'check', null,        0,     'daily', null,    'evening'],
   ['📚', 'Читать',                 'mind',   'count', 'страниц',   20,    'daily', null,    'evening'],
-  ['🇪🇸', 'Испанский 15 минут',     'mind',   'check', null,        0,     'daily', null,    'day'],
+  ['🚭', 'Не курить',               'health', 'check', null,        0,     'daily', null,    'any'],
   ['💧', 'Вода',                   'health', 'count', 'стаканов',  8,     'daily', null,    'any'],
   ['😴', 'Лечь до полуночи',       'health', 'check', null,        0,     'daily', null,    'evening'],
   ['🍬', 'День без сладкого',      'health', 'check', null,        0,     'daily', null,    'any'],
@@ -65,10 +65,30 @@ const seed = {
 
 export const store = createStore({
   key: 'lifeos.ritmo',
-  version: 1,
+  version: 2,
   seed,
   stampField: 'settings',
-  migrate: (data) => data,
+  migrate: (data, from) => {
+    /* v1 → v2: место h-4 занимала привычка «Испанский 15 минут», теперь там
+       «Не курить». Меняем только если пользователь её не переписал под себя —
+       чужую правку затирать нельзя. Отметки за прежнюю привычку снимаем:
+       смысл у записи стал другой, и старая история к ней не относится. */
+    if (from < 2 && Array.isArray(data.habits)) {
+      const slot = data.habits.find(h => h.id === 'h-4');
+      if (slot && slot.title === 'Испанский 15 минут') {
+        Object.assign(slot, {
+          icon: '🚭', title: 'Не курить', area: 'health', when: 'any',
+          color: AREA_COLOR.health, updatedAt: new Date().toISOString(),
+        });
+        for (const day of Object.keys(data.logs || {})) {
+          if (data.logs[day]['h-4'] == null) continue;
+          delete data.logs[day]['h-4'];
+          if (!Object.keys(data.logs[day]).length) delete data.logs[day];
+        }
+      }
+    }
+    return data;
+  },
 });
 
 export const S = () => store.state;

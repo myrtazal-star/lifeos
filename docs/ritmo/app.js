@@ -40,7 +40,8 @@ const fab = el('button.fab', {
 });
 document.body.append(fab);
 
-function syncFab() { fab.style.display = shell.current === 'habits' ? 'grid' : 'none'; }
+const FAB_TABS = new Set(['today', 'habits']);
+function syncFab() { fab.style.display = FAB_TABS.has(shell.current) ? 'grid' : 'none'; }
 syncFab();
 window.addEventListener('hashchange', syncFab);
 

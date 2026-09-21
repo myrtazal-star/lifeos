@@ -268,6 +268,14 @@ export function habitsView(t, lang, rerender) {
     ]));
   }
 
+  nodes.push(el('button.btn.btn--primary.btn--block', {
+    text: '+  ' + t('add_habit'),
+    onclick: () => habitForm({ t, onDone: rerender }),
+  }));
+
+  nodes.push(el('p.tiny.muted-3', { style: { textAlign: 'center', lineHeight: '1.5' },
+    text: t('habits_hint') }));
+
   if (archived.length) {
     nodes.push(el('button.btn.btn--ghost.btn--block', {
       text: ui.showArchived ? t('close') : t('archived_n', { n: archived.length }),
