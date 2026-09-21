@@ -3,7 +3,7 @@
    что-то на компьютере, где-то были офлайн. Ни одна запись не должна
    пропасть, и обе стороны должны прийти к одному и тому же. */
 
-import { mergeList, mergeCells, mergeSingle, mergeState,
+import { mergeList, mergeCells, mergeMap, mergeSingle, mergeState,
          pruneTombstones, alive, stamp, tombstone } from '../shared/js/sync.js';
 
 let failed = 0;
@@ -121,6 +121,61 @@ console.log('\n── Снятая отметка ──');
   const lapM = { '2026-09-21': { sport: T(8) } };
   const m = mergeCells(phoneV, phoneM, lapV, lapM);
   ok('снятие позже отметки побеждает', !m.values['2026-09-21']);
+}
+
+console.log('\n── Заметка дня и самочувствие (одно значение на дату) ──');
+{
+  // на телефоне заметка за 21-е, на компьютере за 20-е — нужны обе
+  const phoneV = { '2026-09-21': 'Тяжёлый день' };
+  const phoneM = { '2026-09-21': T(8) };
+  const lapV = { '2026-09-20': 'Хорошо поработала' };
+  const lapM = { '2026-09-20': T(9) };
+  const m = mergeMap(phoneV, phoneM, lapV, lapM);
+  eq('обе заметки сохранились', Object.keys(m.values).sort(), ['2026-09-20', '2026-09-21']);
+
+  // одну и ту же заметку переписали позже на другом устройстве
+  const laterV = { '2026-09-21': 'Передумала' };
+  const laterM = { '2026-09-21': T(30) };
+  eq('берётся более поздняя правка',
+     mergeMap(phoneV, phoneM, laterV, laterM).values['2026-09-21'], 'Передумала');
+  eq('порядок сторон не влияет',
+     mergeMap(laterV, laterM, phoneV, phoneM).values['2026-09-21'], 'Передумала');
+
+  // заметку стёрли
+  const clearedM = { '2026-09-21': T(30) };
+  ok('позднее стирание побеждает',
+     !mergeMap({}, clearedM, phoneV, phoneM).values['2026-09-21']);
+}
+
+console.log('\n── Состояние Ritmo целиком ──');
+{
+  // ровно та форма, которую объявляет apps/ritmo/sync.js
+  const shape = {
+    lists: { habits: 'id' },
+    cells: { values: 'logs', meta: 'logsMeta' },
+    maps: { notes: 'notesMeta', mood: 'moodMeta' },
+    singles: ['settings'],
+  };
+  const phone = {
+    habits: [tx('h1', 100, T(1))],
+    logs: {}, logsMeta: {},
+    notes: { '2026-09-21': 'С телефона' }, notesMeta: { '2026-09-21': T(5) },
+    mood: { '2026-09-21': 4 }, moodMeta: { '2026-09-21': T(5) },
+    settings: { updatedAt: T(1) },
+  };
+  const laptop = {
+    habits: [tx('h1', 100, T(1))],
+    logs: {}, logsMeta: {},
+    notes: { '2026-09-20': 'С компьютера' }, notesMeta: { '2026-09-20': T(6) },
+    mood: { '2026-09-20': 2 }, moodMeta: { '2026-09-20': T(6) },
+    settings: { updatedAt: T(1) },
+  };
+  const m = mergeState(phone, laptop, shape);
+  eq('заметки с обоих устройств на месте',
+     Object.keys(m.notes).sort(), ['2026-09-20', '2026-09-21']);
+  eq('самочувствие с обоих устройств на месте',
+     Object.keys(m.mood).sort(), ['2026-09-20', '2026-09-21']);
+  ok('отметки времени сохранены', !!m.notesMeta['2026-09-20'] && !!m.moodMeta['2026-09-21']);
 }
 
 console.log('\n── Настройки ──');

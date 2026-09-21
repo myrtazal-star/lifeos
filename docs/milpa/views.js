@@ -892,7 +892,7 @@ function recurringSheet(t, lang, book, rerender) {
   const body = el('div.stack');
 
   function paint() {
-    const list = D.S().recurring.filter(r => r.book === book);
+    const list = D.liveRecurring().filter(r => r.book === book);
     body.replaceChildren(
       list.length
         ? el('div.list', {}, list.map(r => el('button.row', {

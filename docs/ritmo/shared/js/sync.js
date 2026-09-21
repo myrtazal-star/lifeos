@@ -86,6 +86,27 @@ export function mergeCells(localValues = {}, localMeta = {},
   return { values, meta };
 }
 
+/** Словарь «дата → одно значение»: заметка дня, самочувствие.
+    Отличается от mergeCells тем, что на дату приходится одно значение,
+    а не набор по привычкам. */
+export function mergeMap(localValues = {}, localMeta = {},
+                         remoteValues = {}, remoteMeta = {}) {
+  const values = {}, meta = {};
+  const days = new Set([...Object.keys(localValues), ...Object.keys(remoteValues),
+                        ...Object.keys(localMeta), ...Object.keys(remoteMeta)]);
+
+  for (const day of days) {
+    const takeRemote = (remoteMeta[day] || '') > (localMeta[day] || '');
+    const value = takeRemote ? remoteValues[day] : localValues[day];
+    const at = takeRemote ? remoteMeta[day] : localMeta[day];
+
+    if (at) meta[day] = at;
+    if (value != null && value !== '') values[day] = value;
+  }
+
+  return { values, meta };
+}
+
 /* ─────────── Отдельные объекты (настройки) ─────────── */
 
 /** Настройки — маленький объект, его берём целиком у более свежей стороны. */
@@ -127,6 +148,12 @@ export function mergeState(local, remote, shape) {
   if (shape.cells) {
     const { values, meta } = shape.cells;
     const merged = mergeCells(local[values], local[meta], remote[values], remote[meta]);
+    out[values] = merged.values;
+    out[meta] = merged.meta;
+  }
+
+  for (const [values, meta] of Object.entries(shape.maps || {})) {
+    const merged = mergeMap(local[values], local[meta], remote[values], remote[meta]);
     out[values] = merged.values;
     out[meta] = merged.meta;
   }
