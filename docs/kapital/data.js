@@ -56,8 +56,13 @@ function buildDefaultCategories() {
   return out;
 }
 
+/* Названия кошельков по умолчанию. Это единственное место, где они заданы:
+   в версии по подписке сюда попадёт то, что человек введёт при регистрации.
+   Пользователь в любой момент переименовывает их в настройках. */
+const DEFAULT_BOOK_NAMES = { personal: 'Kira Kellar', empresa: 'KOSHTUR' };
+
 const seed = {
-  v: 1,
+  v: 2,
   settings: {
     lang: null,
     theme: 'dark',
@@ -67,8 +72,8 @@ const seed = {
     book: 'personal',
   },
   books: [
-    { id: 'personal', icon: '🏠' },
-    { id: 'empresa', icon: '🏢' },
+    { id: 'personal', icon: '🏠', name: DEFAULT_BOOK_NAMES.personal },
+    { id: 'empresa', icon: '🏢', name: DEFAULT_BOOK_NAMES.empresa },
   ],
   accounts: [
     { id: uid('a'), book: 'personal', name: 'Наличные', type: 'cash', currency: 'MXN', opening: 0, color: '--c1', archived: false },
@@ -82,14 +87,39 @@ const seed = {
 
 export const store = createStore({
   key: 'lifeos.kapital',
-  version: 1,
+  version: 2,
   seed,
-  migrate: (data) => data,
+  migrate: (data, from) => {
+    // v1 → v2: у кошельков появились названия, которые можно менять.
+    // Данные, заведённые до этой версии, названий не имеют — дописываем.
+    if (from < 2 && Array.isArray(data.books)) {
+      for (const b of data.books) {
+        if (!b.name) b.name = DEFAULT_BOOK_NAMES[b.id] || b.id;
+      }
+    }
+    return data;
+  },
 });
 
 export const S = () => store.state;
 
 /* ─────────── Выборки ─────────── */
+
+/** Название кошелька. Если пользователь его не задавал (данные старой версии
+    или чужой язык), откатываемся на строку из словаря. */
+export function bookName(id, t) {
+  const b = S().books.find(x => x.id === id);
+  if (b?.name) return b.name;
+  return t ? t('book_' + id) : id;
+}
+
+export function setBookName(id, name) {
+  store.update(s => {
+    const b = s.books.find(x => x.id === id);
+    // пустое поле не оставляем — возвращаем значение по умолчанию
+    if (b) b.name = String(name || '').trim() || DEFAULT_BOOK_NAMES[id] || id;
+  });
+}
 
 export const accountsOf = (book, { withArchived = false } = {}) =>
   S().accounts.filter(a => a.book === book && (withArchived || !a.archived));

@@ -5,6 +5,8 @@ export const dict = {
 
     book_personal: 'Личное', book_empresa: 'Компания',
     book_switch: 'Кошелёк',
+    books_title: 'Кошельки',
+    books_hint: 'Как называются ваши два учёта — личный и по компании. Названия видны только вам.',
 
     net_worth: 'Всего на счетах',
     month_income: 'Доходы', month_expense: 'Расходы', month_net: 'Разница',
@@ -77,6 +79,8 @@ export const dict = {
     app_name: 'Kapital',
     tab_home: 'Resumen', tab_tx: 'Movimientos', tab_reports: 'Reportes', tab_settings: 'Más',
     book_personal: 'Personal', book_empresa: 'Empresa', book_switch: 'Cartera',
+    books_title: 'Carteras',
+    books_hint: 'Cómo se llaman tus dos contabilidades: la personal y la de la empresa.',
     net_worth: 'Total en cuentas',
     month_income: 'Ingresos', month_expense: 'Gastos', month_net: 'Diferencia',
     accounts: 'Cuentas', add_account: 'Nueva cuenta',
@@ -138,6 +142,8 @@ export const dict = {
     app_name: 'Kapital',
     tab_home: 'Overview', tab_tx: 'Transactions', tab_reports: 'Reports', tab_settings: 'More',
     book_personal: 'Personal', book_empresa: 'Business', book_switch: 'Wallet',
+    books_title: 'Wallets',
+    books_hint: 'What your two sets of books are called — personal and business.',
     net_worth: 'Total across accounts',
     month_income: 'Income', month_expense: 'Expenses', month_net: 'Difference',
     accounts: 'Accounts', add_account: 'New account',
@@ -247,7 +253,7 @@ const nomina = {
     nom_recorded: 'Записано: расход компании и доход в личном кошельке',
     nom_tx_net: 'Зарплата Кире, на руки',
     nom_tx_taxes: 'Налоги и взносы с зарплаты',
-    nom_tx_income: 'Зарплата от KOSHTUR',
+    nom_tx_income: 'Зарплата от {v}',
   },
   es: {
     nom_title: 'Sueldo e impuestos', nom_menu: 'Sueldo e impuestos',
@@ -281,7 +287,7 @@ const nomina = {
     nom_record: 'Registrar este mes',
     nom_recorded: 'Registrado en empresa y en personal',
     nom_tx_net: 'Sueldo neto', nom_tx_taxes: 'Impuestos y cuotas sobre nómina',
-    nom_tx_income: 'Sueldo de KOSHTUR',
+    nom_tx_income: 'Sueldo de {v}',
   },
   en: {
     nom_title: 'Salary and taxes', nom_menu: 'Salary and taxes',
@@ -315,7 +321,7 @@ const nomina = {
     nom_record: 'Record for this month',
     nom_recorded: 'Recorded in business and personal books',
     nom_tx_net: 'Net salary', nom_tx_taxes: 'Payroll taxes and contributions',
-    nom_tx_income: 'Salary from KOSHTUR',
+    nom_tx_income: 'Salary from {v}',
   },
 };
 

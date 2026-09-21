@@ -4,10 +4,15 @@
    меняется только реализация save/load, экраны не трогаем. */
 
 export function createStore({ key, version, seed, migrate }) {
+  let migrated = false;
   let state = load();
   const subs = new Set();
   let saveTimer = null;
   let dirty = false;
+
+  // Миграцию закрепляем сразу: иначе на диске останется старая форма данных
+  // и преобразование будет повторяться при каждом запуске.
+  if (migrated) persist();
 
   function load() {
     let raw = null;
@@ -24,9 +29,12 @@ export function createStore({ key, version, seed, migrate }) {
       return structuredClone(seed);
     }
 
-    if (data.v !== version && typeof migrate === 'function') {
-      try { data = migrate(data, data.v ?? 0, version); }
-      catch (e) { console.error('Миграция не удалась', e); return structuredClone(seed); }
+    if (data.v !== version) {
+      if (typeof migrate === 'function') {
+        try { data = migrate(data, data.v ?? 0, version); }
+        catch (e) { console.error('Миграция не удалась', e); return structuredClone(seed); }
+      }
+      migrated = true;
     }
     // недостающие ключи добираем из seed — чтобы новые функции не ломали старые данные
     return { ...structuredClone(seed), ...data, v: version };

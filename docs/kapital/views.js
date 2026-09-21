@@ -26,7 +26,7 @@ const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyV
 function bookSwitcher(t, rerender) {
   const s = D.S().settings;
   return segmented(
-    D.BOOKS.map(b => ({ value: b, label: t('book_' + b) })),
+    D.BOOKS.map(b => ({ value: b, label: D.bookName(b, t) })),
     s.book,
     v => { D.store.update(st => { st.settings.book = v; }); rerender(); },
   );
@@ -454,6 +454,7 @@ export function settingsView(t, lang, rerender, i18n) {
   nodes.push(el('div.card', {}, [
     el('div.card__head', {}, [el('div.card__title', { text: t('data') })]),
     el('div.list', {}, [
+      navRow('👛', t('books_title'), () => booksSheet(t, rerender)),
       navRow('🏦', t('accounts'), () => accountsSheet(t, book, rerender)),
       navRow('🏷️', t('categories'), () => categoriesSheet(t, book, rerender)),
       navRow('🔁', t('recurring'), () => recurringSheet(t, lang, book, rerender)),
@@ -566,6 +567,34 @@ function accountsSheet(t, book, rerender) {
     ];
   };
   s = sheet({ title: t('accounts'), body: render() });
+}
+
+/** Переименование двух кошельков — личного и по компании. */
+function booksSheet(t, rerender) {
+  const fields = D.BOOKS.map(id => {
+    const node = input({
+      value: D.bookName(id, t),
+      enterkeyhint: 'done',
+      onchange: e => {
+        D.setBookName(id, e.target.value);
+        // пустое поле хранилище заменяет значением по умолчанию — покажем его
+        e.target.value = D.bookName(id, t);
+        rerender();
+      },
+    });
+    return el('label.field', {}, [
+      el('span.label', { text: `${D.S().books.find(b => b.id === id)?.icon || ''} ${t('book_' + id)}` }),
+      node,
+    ]);
+  });
+
+  sheet({
+    title: t('books_title'),
+    body: [
+      el('p.tiny.muted-3', { text: t('books_hint') }),
+      ...fields,
+    ],
+  });
 }
 
 function categoriesSheet(t, book, rerender) {

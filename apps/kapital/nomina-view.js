@@ -195,7 +195,7 @@ export function nominaSheet({ t, lang, onDone }) {
       book: 'empresa', kind: 'expense', date,
       amount: toCents(r.net), currency: empresaAccounts[0].currency,
       account: empresaAccounts[0].id, category: salaryCat?.id ?? null,
-      party: 'Kira Kellar', note: t('nom_tx_net'),
+      party: D.bookName('personal', t), note: t('nom_tx_net'),
     });
     D.addTx({
       book: 'empresa', kind: 'expense', date,
@@ -207,7 +207,8 @@ export function nominaSheet({ t, lang, onDone }) {
       book: 'personal', kind: 'income', date,
       amount: toCents(r.net), currency: personalAccounts[0].currency,
       account: personalAccounts[0].id, category: incomeCat?.id ?? null,
-      party: 'KOSHTUR', note: t('nom_tx_income'),
+      party: D.bookName('empresa', t),
+      note: t('nom_tx_income', { v: D.bookName('empresa', t) }),
     });
 
     haptic(20);
