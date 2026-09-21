@@ -111,7 +111,7 @@ function txRow(t, lang, tx, rerender) {
 
   // если валюта операции не основная — показываем справку в основной
   const altCur = tx.currency !== base
-    ? formatMoney(D.toBase(tx.amount, tx.currency), base, { decimals: 0 })
+    ? formatMoney(D.toBase(tx.amount, tx.currency, D.rateOf(tx)), base, { decimals: 0 })
     : null;
 
   return el('button.row', {
@@ -148,8 +148,8 @@ function txList(t, lang, list, rerender, { limit } = {}) {
   const out = [];
   for (const [date, items] of groups) {
     const dayTotal = items.reduce((s, tx) => {
-      if (tx.kind === 'expense') return s - D.toBase(tx.amount, tx.currency);
-      if (tx.kind === 'income') return s + D.toBase(tx.amount, tx.currency);
+      if (tx.kind === 'expense') return s - D.toBase(tx.amount, tx.currency, D.rateOf(tx));
+      if (tx.kind === 'income') return s + D.toBase(tx.amount, tx.currency, D.rateOf(tx));
       return s;
     }, 0);
 
@@ -569,7 +569,7 @@ export function reportsView(t, lang, rerender) {
 
   /* Крупнейшие расходы */
   const biggest = D.txOf(book, { from, to, kind: 'expense' })
-    .sort((a, b) => D.toBase(b.amount, b.currency) - D.toBase(a.amount, a.currency))
+    .sort((a, b) => D.toBase(b.amount, b.currency, D.rateOf(b)) - D.toBase(a.amount, a.currency, D.rateOf(a)))
     .slice(0, 5);
   if (biggest.length) {
     nodes.push(el('div.card', {}, [

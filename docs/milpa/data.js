@@ -99,7 +99,7 @@ export const store = createStore({
   key: 'lifeos.milpa',
   // приложение называлось Kapital — данные, заведённые тогда, подхватываются
   legacyKey: 'lifeos.kapital',
-  version: 2,
+  version: 3,
   seed,
   // отметку времени на настройках ставит само хранилище
   stampField: 'settings',
@@ -109,6 +109,20 @@ export const store = createStore({
     if (from < 2 && Array.isArray(data.books)) {
       for (const b of data.books) {
         if (!b.name) b.name = DEFAULT_BOOK_NAMES[b.id] || b.id;
+      }
+    }
+
+    /* v2 → v3: операция запоминает курс на свою дату. Прежним валютным
+       записям проставляем курс, действующий сейчас: настоящего курса на их
+       дату мы не знаем, но так прошлые отчёты хотя бы перестанут меняться
+       при каждом обновлении курса. */
+    if (from < 3 && Array.isArray(data.tx)) {
+      const base = data.settings?.base || 'MXN';
+      const rate = Number(data.settings?.fx?.USD) || 0;
+      if (rate > 0) {
+        for (const t of data.tx) {
+          if (t.fxRate == null && t.currency && t.currency !== base) t.fxRate = rate;
+        }
       }
     }
     return data;
@@ -183,17 +197,28 @@ export function txOf(book, { from, to, accountId, categoryId, kind, query } = {}
 
 export const rates = () => ({ base: S().settings.base, rates: { ...S().settings.fx, MXN: 1 } });
 
-/** Пересчёт в основную валюту. Курс хранится как «MXN за 1 USD»,
-    поэтому база всегда MXN; если база USD — делим. */
-export function toBase(cents, currency) {
+/** Курс на сегодня: сколько песо за доллар. */
+export const currentRate = () => Number(S().settings.fx?.USD) || 0;
+
+/**
+ * Пересчёт в основную валюту.
+ *
+ * rate — курс, действовавший в момент операции. Без него прошлогодняя
+ * сделка пересчитывалась бы сегодняшним курсом, и отчёт за март,
+ * открытый в сентябре, показывал бы другие числа, чем показывал в марте.
+ */
+export function toBase(cents, currency, rate) {
   const base = S().settings.base;
   if (currency === base) return cents;
-  const usdMxn = Number(S().settings.fx?.USD) || 0;
+  const usdMxn = Number(rate) > 0 ? Number(rate) : currentRate();
   if (!usdMxn) return cents;
   if (currency === 'USD' && base === 'MXN') return Math.round(cents * usdMxn);
   if (currency === 'MXN' && base === 'USD') return Math.round(cents / usdMxn);
   return cents;
 }
+
+/** Курс, по которому надо считать конкретную операцию. */
+export const rateOf = (tx) => (Number(tx?.fxRate) > 0 ? Number(tx.fxRate) : null);
 
 /** Остаток по счёту в валюте счёта. */
 export function balanceOf(accountId) {
@@ -225,7 +250,7 @@ export function periodStats(book, from, to) {
     if (t.book !== book || t.date < from || t.date > to) continue;
     count++;
     const acc = accountById(t.account);
-    const v = toBase(t.amount, t.currency || acc?.currency || S().settings.base);
+    const v = toBase(t.amount, t.currency || acc?.currency || S().settings.base, rateOf(t));
     if (t.kind === 'income') income += v;
     else if (t.kind === 'expense') expense += v;
   }
@@ -238,7 +263,7 @@ export function byCategory(book, from, to, kind = 'expense') {
   for (const t of liveTx()) {
     if (t.book !== book || t.kind !== kind || t.date < from || t.date > to) continue;
     const acc = accountById(t.account);
-    const v = toBase(t.amount, t.currency || acc?.currency || S().settings.base);
+    const v = toBase(t.amount, t.currency || acc?.currency || S().settings.base, rateOf(t));
     const key = t.category || '__none';
     const cur = map.get(key) || { id: key, total: 0, count: 0 };
     cur.total += v; cur.count++;
@@ -279,6 +304,9 @@ export function addTx(data) {
       party: data.party || '', note: data.note || '',
       /* Данные счёта-фактуры. UUID делает повторную загрузку безошибочной,
          IVA и RFC нужны для налоговой отчётности и вычитаемости расхода. */
+      /* Курс на момент записи. Дальше операция пересчитывается только по
+         нему: иначе прошлые отчёты меняются при каждом изменении курса. */
+      fxRate: data.fxRate ?? (data.currency !== S().settings.base ? currentRate() : null),
       uuid: data.uuid || null,
       rfc: data.rfc || null,
       iva: data.iva ?? null,
