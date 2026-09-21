@@ -85,6 +85,8 @@ function landingPage() {
           border: 1px solid var(--line-soft); }
   .tile img { width: 58px; height: 58px; border-radius: 15px; }
   .tile h2 { font-size: 17px; }
+  .tile--kapital h2 { color: #34d399; }
+  .tile--ritmo h2 { color: #8b6dff; }
   .tile p { color: var(--text-2); font-size: 13.5px; margin-top: 3px; }
   .how { background: var(--surface-2); border-radius: var(--r-lg); padding: 18px;
          font-size: 14px; color: var(--text-2); line-height: 1.6; }
@@ -98,7 +100,7 @@ function landingPage() {
     <p>Откройте нужное и добавьте на экран «Домой» — дальше работают как обычные приложения, в том числе без интернета.</p>
   </div>
 
-  <a class="tile" href="./kapital/">
+  <a class="tile tile--kapital" href="./kapital/">
     <img src="./kapital/icons/icon-192.png" alt="">
     <div>
       <h2>Kapital</h2>
@@ -106,7 +108,7 @@ function landingPage() {
     </div>
   </a>
 
-  <a class="tile" href="./ritmo/">
+  <a class="tile tile--ritmo" href="./ritmo/">
     <img src="./ritmo/icons/icon-192.png" alt="">
     <div>
       <h2>Ritmo</h2>
