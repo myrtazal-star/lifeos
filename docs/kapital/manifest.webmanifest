@@ -1,0 +1,53 @@
+{
+  "name": "Kapital — финансы",
+  "short_name": "Kapital",
+  "description": "Личные и деловые финансы: расходы, доходы, счета в песо и долларах, отчёты.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10",
+  "lang": "ru",
+  "dir": "ltr",
+  "categories": [
+    "finance",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Записать расход",
+      "url": "./index.html#home"
+    },
+    {
+      "name": "Отчёты",
+      "url": "./index.html#reports"
+    }
+  ]
+}

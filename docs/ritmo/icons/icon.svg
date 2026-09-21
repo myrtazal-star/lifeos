@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Ritmo">
+  <rect width="100" height="100" rx="22.5" fill="#7c5cff"/>
+  <circle cx="50" cy="50" r="29.25" fill="none" stroke="#ffffff" stroke-opacity=".38" stroke-width="7.5"/>
+  <path d="M36 51 L46 61 L65 39" fill="none" stroke="#ffffff" stroke-width="9.2"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,16 @@
+{
+  "name": "lifeos",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Kapital (финансы) и Ritmo (дисциплина) — два приложения на общем ядре",
+  "scripts": {
+    "icons": "node tools/make-icons.mjs",
+    "build": "node tools/build.mjs",
+    "dev": "node tools/serve.mjs",
+    "check": "node tools/check.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}
